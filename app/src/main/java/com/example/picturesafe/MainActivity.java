@@ -1,4 +1,5 @@
 package com.example.picturesafe;
+import com.example.picturesafe.classes.Picture;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -45,31 +46,20 @@ public class MainActivity extends AppCompatActivity {
             Uri imageUri = data.getData();
             try {
                 // Bild als Bitmap laden
+                // Nullable abfangen!
                 InputStream inputStream = getContentResolver().openInputStream(imageUri);
                 Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
                 inputStream.close();
 
-
-                // Anzeige
                 imageView.setImageBitmap(bitmap);
 
-                // --- Auflösung ---
-                int width = bitmap.getWidth();
-                int height = bitmap.getHeight();
-
-
-                int k = 1;
-                int s = 32;
-                int capacity = ((width * (height-1)*3*k) - (s+16)*(height-1)) / 8000;
+                Picture picture = new Picture(bitmap);
 
                 infoText.setText(
-                        "Auflösung: " + width + " x " + height +
-                                "\nSpeicherbare Datenmenge: " + capacity + " KiloBytes"
+                        "Auflösung: " + picture.width + " x " + picture.height +
+                                "\nSpeicherbare Datenmenge: " + picture.storeable_data_in_kb + " KiloBytes"
                 );
 
-
-                // Hier hast du das Bitmap-Objekt für Steganographie
-                // z.B.: this.loadedBitmap = bitmap;
             } catch (Exception e) {
                 e.printStackTrace();
             }

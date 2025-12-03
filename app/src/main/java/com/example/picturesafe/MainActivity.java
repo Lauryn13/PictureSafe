@@ -1,5 +1,6 @@
 package com.example.picturesafe;
 import com.example.picturesafe.classes.Picture;
+import com.example.picturesafe.classes.TextData;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -7,19 +8,23 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import java.io.InputStream;
+import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity {
-
+    private static final String TAG = "MainActivity";
     private static final int PICK_IMAGE = 1;
     ImageView imageView;
     TextView infoText;
+    EditText saveableText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,6 +40,8 @@ public class MainActivity extends AppCompatActivity {
             intent.setType("image/*");
             startActivityForResult(Intent.createChooser(intent, "Bild auswählen"), PICK_IMAGE);
         });
+
+        EditText saveableText = (EditText) findViewById(R.id.saveableText);
     }
 
     @Override
@@ -54,6 +61,10 @@ public class MainActivity extends AppCompatActivity {
                 imageView.setImageBitmap(bitmap);
 
                 Picture picture = new Picture(bitmap);
+                String text = "Hallo!";
+
+                TextData textData = new TextData(text);
+                binary[] binData = textData.convert_to_binary();
 
                 infoText.setText(
                         "Auflösung: " + picture.width + " x " + picture.height +

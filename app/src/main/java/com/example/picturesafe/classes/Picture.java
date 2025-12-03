@@ -55,12 +55,23 @@ public class Picture {
         return pixels;
     }
 
+    public void setData(byte[] byteData){
+        // convert Data to bin
+        int[] binData = this.bytesToBinary(byteData);
+
+        // update Pixels
+        for(int i = 0; i < binData.length; i++){
+            // update Pixel ! needs function for new Pixel calculation.
+            this.pixels[Math.floorDiv(i,this.pixels[0].length)][i - Math.floorDiv(i, this.pixels[0].length)]
+        }
+    }
+
     private Bitmap update_bitmap_pixels(){
         Bitmap newBitmap = Bitmap.createBitmap(this.width, this.height, Bitmap.Config.ARGB_8888);
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                newBitmap.setPixel(x, y, pixels[y][x]);
+                newBitmap.setPixel(x, y, this.pixels[y][x]);
             }
         }
         return newBitmap;
@@ -70,8 +81,21 @@ public class Picture {
 //        File file = new File(getFilesDir(), "output.png");
 //        FileOutputStream fos = new FileOutputStream(file);
 //
+//        this.bitmap = this.update_bitmap_pixels();
 //        this.bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
 //        fos.close();
 //        return file;
 //    }
+
+    private int[] bytesToBinary(byte[] bytes) {
+        int[] bits = new int[bytes.length * 8];
+        int index = 0;
+
+        for (byte b : bytes) {
+            for (int i = 7; i >= 0; i--) {
+                bits[index++] = (b >> i) & 1;
+            }
+        }
+        return bits;
+    }
 }

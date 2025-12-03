@@ -1,13 +1,8 @@
 package com.example.picturesafe.classes;
 
-public class StoringData {
-    public static String TYPE;
+public abstract class StoringData<T> {
+    protected T content;
 
-    public StoringData(){
-
-    }
-
-//    public int[] convert_to_binary(){
-//        return ;
-//    }
+    public abstract byte[] convert_to_binary();
 }
+

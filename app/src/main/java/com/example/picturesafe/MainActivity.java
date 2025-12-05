@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -16,6 +17,8 @@ import android.widget.TextView;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 
@@ -24,7 +27,12 @@ public class MainActivity extends AppCompatActivity {
     private static final int PICK_IMAGE = 1;
     ImageView imageView;
     TextView infoText;
+    TextView readedText;
     EditText saveableText;
+    EditText charactersCount;
+
+    Picture picture;
+    TextData textData;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,6 +42,7 @@ public class MainActivity extends AppCompatActivity {
         Button btnSelect = findViewById(R.id.btnSelect);
         imageView = findViewById(R.id.imageView);
         infoText = findViewById(R.id.infoText);
+        readedText = findViewById(R.id.readedText);
 
         btnSelect.setOnClickListener(v -> {
             Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
@@ -41,7 +50,8 @@ public class MainActivity extends AppCompatActivity {
             startActivityForResult(Intent.createChooser(intent, "Bild auswählen"), PICK_IMAGE);
         });
 
-        EditText saveableText = (EditText) findViewById(R.id.saveableText);
+        saveableText = (EditText) findViewById(R.id.saveableText);
+        charactersCount = (EditText) findViewById(R.id.ReadCharacters);
     }
 
     @Override
@@ -58,13 +68,8 @@ public class MainActivity extends AppCompatActivity {
                 Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
                 inputStream.close();
 
-                imageView.setImageBitmap(bitmap);
-
-                Picture picture = new Picture(bitmap);
-                String text = "Hallo!";
-
-                TextData textData = new TextData(text);
-                binary[] binData = textData.convert_to_binary();
+                picture = new Picture(bitmap);
+                imageView.setImageBitmap(picture.bitmap);
 
                 infoText.setText(
                         "Auflösung: " + picture.width + " x " + picture.height +
@@ -75,5 +80,25 @@ public class MainActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
         }
+    }
+
+    public void click_btnWrite(View v){
+        textData = new TextData(saveableText.getText().toString());
+
+        byte[] binData = textData.convert_to_bytes();
+        picture.setData(binData);
+
+        imageView.setImageBitmap(picture.bitmap);
+        try {
+            Uri uri = picture.generate_png(getBaseContext());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void click_btnRead(View v){
+        int characters = Integer.parseInt(String.valueOf(charactersCount.getText()));
+        TextData text = picture.read_content(characters);
+        readedText.setText(text.content);
     }
 }

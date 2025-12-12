@@ -7,11 +7,10 @@ import android.net.Uri;
 import android.provider.MediaStore;
 import android.util.Log;
 
+import com.example.picturesafe.enumerators.DataTypes;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 public class Picture {
     private static final String TAG = "Picture";
@@ -25,6 +24,7 @@ public class Picture {
     public int storeable_data_in_kb;
 
     private int[][] pixels;
+    private DataTypes storedDataType;
 
     public Picture(Bitmap data, int k, int s){
         // Constructor
@@ -44,6 +44,18 @@ public class Picture {
         this(data, 1, 32);
     }
 
+    private byte[] generate_metadata(int currentPicture){
+        // sollten 15 Byte sein
+        byte[] metadata = new byte[15];
+
+        metadata[0] = (byte) currentPicture; // maximum 127 Pictures -> exception handling!
+        metadata[1] = (byte) 0; // amount of Pictures (can not be set here)
+
+
+
+        return metadata;
+    }
+
     // decoding of bitmap into Bytes-Array (changeable data)
     private int[][] read_pixel_array(){
         int[][] pixels = new int[this.height][this.width];
@@ -61,19 +73,16 @@ public class Picture {
     }
 
     // update Pixel Data with byteData (do the LSB Stuff)
-    public void setData(byte[] byteData){
+    // overload return rest of byteData (Data not stored within the picture)
+    // need another function that sets the amount of pictures used to store data -> not possible when not every picture has been set yet
+    public void setData(byte[] byteData, int currentPicture){
         // convert Data to bin
         int[] binData = this.bytesToBinary(byteData);
-        Log.v(TAG, Arrays.toString(binData));
         int bitsToUpdate = Math.ceilDiv(binData.length, 3);
-        Log.v(TAG, bitsToUpdate + "");
-        Log.v(TAG, this.pixels.length + "px Lenght");
-        Log.v(TAG, this.pixels[0].length + "px Width");
-
 
         // update Pixels
         for(int i = 0; i < bitsToUpdate; i++){
-            // update Pixel ! needs function for new Pixel calculation.
+
             int pixelsX = Math.floorDiv(i,this.pixels[0].length);
             int pixelsY = i - Math.floorDiv(i, this.pixels[0].length);
 
@@ -81,25 +90,35 @@ public class Picture {
             int bitG;
             int bitB;
 
-            if (i*3+1 >= binData.length)
+            try {
+                bitG = binData[i * 3 + 1];
+            }
+            catch (ArrayIndexOutOfBoundsException e){
                 bitG = 0;
-            else
-                bitG = binData[i*3+1];
-
-            if (i*3+2 >= binData.length)
+            }
+            try {
+                bitB = binData[i * 3 + 2];
+            }
+            catch (ArrayIndexOutOfBoundsException e){
                 bitB = 0;
-            else
-                bitB = binData[i*3+2];
-
-            Log.v(TAG, Integer.toString(pixelsX));
-            Log.v(TAG, Integer.toString(i));
-
+            }
 
             this.pixels[pixelsX][pixelsY] = this.setLSB(this.pixels[pixelsX][pixelsY], bitR, bitG, bitB);
         }
 
+        // create Metadata
+        byte[] metadata = this.generate_metadata(currentPicture);
+
+        // TODO set Metadata
+
         this.bitmap = update_bitmap_pixels();
     }
+    // overload for first picture
+    public void setData(byte[] byteData){
+        this.setData(byteData, 0);
+    }
+
+    // generate PNG
 
     public Uri generate_png(Context context) throws IOException {
 
@@ -134,15 +153,19 @@ public class Picture {
             int[] binList = this.readLSB(this.pixels[pixelsX][pixelsY]);
             binData[i*3] = binList[0];
 
-            if(i*3+1 >= len)
-                break;
-            else if(i*3+1 < len)
+            try {
                 binData[i*3+1] = binList[1];
-
-            if(i*3+2 >= len)
+            }
+            catch (ArrayIndexOutOfBoundsException e){
                 break;
-            else
+            }
+
+            try {
                 binData[i*3+2] = binList[2];
+            }
+            catch (ArrayIndexOutOfBoundsException e){
+                break;
+            }
         }
 
         byte[] data = this.binaryToBytes(binData);

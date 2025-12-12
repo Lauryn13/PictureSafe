@@ -20,7 +20,6 @@ import android.graphics.BitmapFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -29,7 +28,6 @@ public class MainActivity extends AppCompatActivity {
     TextView infoText;
     TextView readedText;
     EditText saveableText;
-    EditText charactersCount;
 
     Picture picture;
     TextData textData;
@@ -51,7 +49,6 @@ public class MainActivity extends AppCompatActivity {
         });
 
         saveableText = (EditText) findViewById(R.id.saveableText);
-        charactersCount = (EditText) findViewById(R.id.ReadCharacters);
     }
 
     @Override
@@ -71,6 +68,11 @@ public class MainActivity extends AppCompatActivity {
                 picture = new Picture(bitmap);
                 imageView.setImageBitmap(picture.bitmap);
 
+                if(picture.hasData){
+                    TextData text = picture.read_content();
+                    readedText.setText(text.content);
+                }
+
                 infoText.setText(
                         "Auflösung: " + picture.width + " x " + picture.height +
                                 "\nSpeicherbare Datenmenge: " + picture.storeable_data_in_kb + " KiloBytes"
@@ -84,9 +86,10 @@ public class MainActivity extends AppCompatActivity {
 
     public void click_btnWrite(View v){
         textData = new TextData(saveableText.getText().toString());
+        Log.v(TAG, "Text to safe " + saveableText.getText().toString());
 
         byte[] binData = textData.convert_to_bytes();
-        picture.setData(binData);
+        picture.setData(binData, 0);
 
         imageView.setImageBitmap(picture.bitmap);
         try {
@@ -94,11 +97,5 @@ public class MainActivity extends AppCompatActivity {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public void click_btnRead(View v){
-        int characters = Integer.parseInt(String.valueOf(charactersCount.getText()));
-        TextData text = picture.read_content(characters);
-        readedText.setText(text.content);
     }
 }

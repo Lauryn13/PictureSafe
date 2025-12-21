@@ -30,7 +30,7 @@ public class Picture {
     public CompressionType compressionType;
 
     private int[][] pixels;
-    private DataTypes storedDataType;
+    public DataTypes storedDataType;
     private int rowsOfData;
     private int lastRowDataBits;
 
@@ -133,10 +133,10 @@ public class Picture {
     // update Pixel Data with byteData (do the LSB Stuff)
     // overload return rest of byteData (Data not stored within the picture)
     // TODO need another function that sets the amount of pictures used to store data -> not possible when not every picture has been set yet
-    public void setData(byte[] byteData, int currentPicture){
+    public void setData(byte[] byteData, int currentPicture, DataTypes dataType){
         // TODO add functions and remove hard coding
         this.compressionType = CompressionType.NOCCOMPRESSION;
-        this.storedDataType = DataTypes.TEXTDATA;
+        this.storedDataType = dataType;
 
         // convert Data to bin
         int[] binData = PictureUtils.bytesToBinary(byteData);
@@ -203,10 +203,7 @@ public class Picture {
 
         this.bitmap = update_bitmap_pixels();
     }
-    // overload for first picture
-    public void setData(byte[] byteData){
-        this.setData(byteData, 0);
-    }
+
 
     public void setAmountofPictures(int amountofPictures){
         // TODO
@@ -264,7 +261,7 @@ public class Picture {
         return pixels;
     }
 
-    public TextData read_content(int lenInBits, boolean readMetadata){
+    public FileData read_content(int lenInBits, boolean readMetadata){
         int[] binData = new int[lenInBits];
         int extraRow = readMetadata ? 0 : 1;
         int pixelToRead = Math.ceilDiv(lenInBits, 3);
@@ -293,17 +290,16 @@ public class Picture {
         }
 
         byte[] data = PictureUtils.binaryToBytes(binData);
-        String str = new String(data, StandardCharsets.UTF_8);
-        return new TextData(str);
+        return new FileData(data, this.storedDataType, "textExport");
     }
 
-    public TextData read_content(){
+    public FileData read_content(){
         return this.read_content((this.rowsOfData - 1) * this.width * 3 + this.lastRowDataBits, false);
     }
 
 
     private Object[] read_metadata(){
-        byte[] data = this.read_content(22 * 8, true).content.getBytes();
+        byte[] data = this.read_content(22 * 8, true).content;
         return PictureUtils.convertMetaDataBytes(data);
     }
 }

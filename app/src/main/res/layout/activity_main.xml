@@ -19,8 +19,8 @@
 
         <EditText
             android:id="@+id/saveableText"
-            android:layout_width="300px"
-            android:layout_height="60px"/>
+            android:layout_width="129dp"
+            android:layout_height="wrap_content" />
 
         <Button
             android:id="@+id/btnWrite"
@@ -61,6 +61,28 @@
             android:text=""
             android:textSize="16sp"
             android:layout_marginTop="12dp" />
+
+        <Button
+            android:id="@+id/btnSelectFile"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Datei auswählen" />
+
+        <TextView
+            android:id="@+id/fileText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="16sp"
+            android:layout_marginTop="12dp" />
+
+        <ImageView
+            android:id="@+id/outputImage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:layout_marginTop="20dp" />
 
     </LinearLayout>
 </ScrollView>

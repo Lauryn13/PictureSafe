@@ -1,7 +1,11 @@
 package com.example.picturesafe;
 import com.example.picturesafe.classes.FileData;
 import com.example.picturesafe.classes.Picture;
-import com.example.picturesafe.classes.TextData;
+import com.example.picturesafe.components.PictureSafeButton;
+import com.example.picturesafe.components.PictureSafeEditText;
+import com.example.picturesafe.components.PictureSafeImage;
+import com.example.picturesafe.components.PictureSafeLayout;
+import com.example.picturesafe.components.PictureSafeText;
 import com.example.picturesafe.enumerators.DataTypes;
 
 import androidx.annotation.Nullable;
@@ -12,31 +16,37 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.ImageView;
-import android.widget.TextView;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.widget.TextView;
 
 import java.io.IOException;
 import java.io.InputStream;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
-    ImageView imageView;
-    ImageView outputImage;
-    TextView infoText;
-    TextView fileText;
-    TextView readedText;
-    EditText saveableText;
+    PictureSafeImage imageView;
+    PictureSafeImage outputImage;
+
+    PictureSafeButton btnSelectPicture;
+    PictureSafeButton btnSelectFile;
+    PictureSafeButton btnWrite;
+
+    PictureSafeText infoText;
+    PictureSafeText fileText;
+    PictureSafeText readedText;
+
+    PictureSafeEditText saveableText;
+
+    PictureSafeLayout insertDataLayout;
+    PictureSafeLayout outputDataLayout;
 
     Picture picture;
     FileData fileData;
-    TextData textData;
 
-    byte[] binData;
+    byte[] byteData;
+    boolean dataChoosen;
 
     // Request Codes
     static final int PICK_IMAGE = 1;
@@ -47,22 +57,34 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Button btnSelect = findViewById(R.id.btnSelect);
-        Button btnSelectFile = findViewById(R.id.btnSelectFile);
-        fileText = findViewById(R.id.fileText);
+        TextView tabFile = findViewById(R.id.tabFile);
+        TextView tabText = findViewById(R.id.tabText);
 
-        imageView = findViewById(R.id.imageView);
-        outputImage = findViewById(R.id.outputImage);
-        infoText = findViewById(R.id.infoText);
-        readedText = findViewById(R.id.readedText);
+        insertDataLayout = new PictureSafeLayout(findViewById(R.id.insertDataLayout));
+        outputDataLayout = new PictureSafeLayout(findViewById(R.id.outputDataLayout));
 
-        btnSelect.setOnClickListener(v -> {
+        btnSelectPicture = new PictureSafeButton(getBaseContext(), findViewById(R.id.btnSelect), true);
+        btnSelectFile = new PictureSafeButton(getBaseContext(), findViewById(R.id.btnSelectFile));
+        btnWrite = new PictureSafeButton(getBaseContext(), findViewById(R.id.btnWrite));
+
+        fileText = new PictureSafeText(findViewById(R.id.fileText), findViewById(R.id.fileCard));
+        infoText = new PictureSafeText(findViewById(R.id.infoText), findViewById(R.id.infoCard));
+        readedText = new PictureSafeText(findViewById(R.id.readedText), findViewById(R.id.readedCard));
+
+        imageView = new PictureSafeImage(findViewById(R.id.imageView), findViewById(R.id.imageCard), true);
+        outputImage = new PictureSafeImage(findViewById(R.id.outputImage), findViewById(R.id.outputCard));
+
+        saveableText = new PictureSafeEditText(findViewById(R.id.saveableText), findViewById(R.id.saveableCard));
+
+        dataChoosen = true;
+
+        btnSelectPicture.button.setOnClickListener(v -> {
             Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
             intent.setType("image/*");
             startActivityForResult(Intent.createChooser(intent, "Bild auswählen"), PICK_IMAGE);
         });
 
-        btnSelectFile.setOnClickListener(v -> {
+        btnSelectFile.button.setOnClickListener(v -> {
             Log.v(TAG, "btnSelectFile clicked");
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -74,7 +96,23 @@ public class MainActivity extends AppCompatActivity {
             startActivityForResult(intent, PICK_FILE);
         });
 
-        saveableText = (EditText) findViewById(R.id.saveableText);
+        tabFile.setOnClickListener(v -> {
+            dataChoosen = true;
+            btnSelectFile.change_visibility(true);
+            saveableText.change_visibility(false);
+
+            tabFile.setBackgroundColor(getColor(R.color.primaryVariant));
+            tabText.setBackgroundColor(getColor(R.color.primary));
+        });
+
+        tabText.setOnClickListener(v -> {
+            dataChoosen = false;
+            saveableText.change_visibility(true);
+            btnSelectFile.change_visibility(false);
+
+            tabText.setBackgroundColor(getColor(R.color.primaryVariant));
+            tabFile.setBackgroundColor(getColor(R.color.primary));
+        });
     }
 
     @Override
@@ -96,25 +134,31 @@ public class MainActivity extends AppCompatActivity {
                 inputStream.close();
 
                 picture = new Picture(bitmap);
-                imageView.setImageBitmap(picture.bitmap);
+                imageView.setImage(picture.bitmap);
 
                 if(picture.hasData){
                     FileData fileData = picture.read_content();
 
                     if(picture.storedDataType == DataTypes.JPG){
                         Bitmap outputBitmap = BitmapFactory.decodeByteArray(fileData.content, 0, fileData.content.length);
-                        outputImage.setImageBitmap(outputBitmap);
+                        outputImage.setImage(outputBitmap);
                     }
                     else if(picture.storedDataType == DataTypes.TEXTDATA){
                         String text = new String(fileData.content);
                         readedText.setText(text);
                     }
+                    outputDataLayout.change_visibility(true);
                 }
 
                 infoText.setText(
                         "Auflösung: " + picture.width + " x " + picture.height +
                                 "\nSpeicherbare Datenmenge: " + picture.storeable_data_in_kb + " KiloBytes"
                 );
+
+               insertDataLayout.change_visibility(true);
+               btnSelectPicture.set_highlight(false);
+               btnSelectFile.change_visibility(true);
+               btnWrite.change_visibility(true);
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -124,7 +168,6 @@ public class MainActivity extends AppCompatActivity {
             // Datei auswählen
             try {
                 fileData = new FileData(getBaseContext(), uri);
-                binData = fileData.convert_to_bytes();
                 fileText.setText(fileData.name);
                 Log.v(TAG, "FILE WAS READED.");
             } catch (Exception e) {
@@ -135,17 +178,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void click_btnWrite(View v){
-//        textData = new TextData(saveableText.getText().toString());
-//        Log.v(TAG, "Text to safe " + saveableText.getText().toString());
-//
-//        binData = textData.convert_to_bytes();
-//        picture.setData(binData, 0, DataTypes.TEXTDATA);
-        Log.v(TAG, "Name " + fileData.name);
-        Log.v(TAG, "FileType " + fileData.dataType);
+        // Exception handling needed
+        if(!dataChoosen){
+            String textData = saveableText.readText();
+            fileData = new FileData(textData.getBytes(), DataTypes.TEXTDATA, "textExport");
+            byteData = fileData.convert_to_bytes();
+        }
+        else{
+            byteData = fileData.convert_to_bytes();
+        }
 
-        picture.setData(binData, 0, fileData.dataType);
-
-        imageView.setImageBitmap(picture.bitmap);
+        picture.setData(byteData, 0, fileData.dataType);
+        imageView.setImage(picture.bitmap);
         try {
             Uri uri = picture.generate_png(getBaseContext());
         } catch (IOException e) {

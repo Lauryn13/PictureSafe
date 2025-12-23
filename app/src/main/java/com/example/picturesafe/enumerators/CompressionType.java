@@ -3,7 +3,7 @@ package com.example.picturesafe.enumerators;
 public enum CompressionType {
     // müssen immer 2 Zeichen lang sein!
     // Reihenfolge: Byteumwandlung -> Komprimierung -> Verschlüsselung
-    NOCCOMPRESSION("NN"),
+    NOCOMPRESSION("NN"),
     AESNOCOMPRESSION("AN"),
     AESZSTDCOMPRESSION("ZA"),
     ZSTDCOMPRESSION("ZN");
@@ -22,6 +22,6 @@ public enum CompressionType {
         for (CompressionType dt : values()) {
             if (dt.getText().equals(text)) return dt;
         }
-        return NOCCOMPRESSION;
+        return NOCOMPRESSION;
     }
 }

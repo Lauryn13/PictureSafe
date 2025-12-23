@@ -53,7 +53,7 @@ public class Picture {
 
     // Overload for standard values (optional parameters)
     public Picture(Bitmap data){
-        this(data,CompressionType.NOCCOMPRESSION , 1, 32);
+        this(data,CompressionType.NOCOMPRESSION , 1, 32);
     }
     public Picture(Bitmap data, CompressionType compressionType) {
         this(data, compressionType, 1, 32);
@@ -103,7 +103,7 @@ public class Picture {
         assert this.signature != null;
         assert this.signature.length() == 4;
 
-        // set metadata
+        // set metadata in first 22 Bytes
         metadata[0] = pSafeSignatureBytes[0];
         metadata[1] = pSafeSignatureBytes[1];
         metadata[2] = pSafeSignatureBytes[2];
@@ -135,7 +135,7 @@ public class Picture {
     // TODO need another function that sets the amount of pictures used to store data -> not possible when not every picture has been set yet
     public void setData(byte[] byteData, int currentPicture, DataTypes dataType){
         // TODO add functions and remove hard coding
-        this.compressionType = CompressionType.NOCCOMPRESSION;
+        this.compressionType = CompressionType.NOCOMPRESSION;
         this.storedDataType = dataType;
 
         // convert Data to bin

@@ -13,7 +13,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 
-public class FileData extends StoringData<String>{
+public class FileData{
     public byte[] content;
     public DataTypes dataType;
     public String name;
@@ -61,7 +61,6 @@ public class FileData extends StoringData<String>{
         return name;
     }
 
-    @Override
     public byte[] convert_to_bytes(){
         return this.content;
     }

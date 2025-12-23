@@ -8,8 +8,7 @@ public enum DataTypes {
     TEXTDATA("0STR"),
     TXTDATA("0TXT"),
     JPG("0JPG"),
-    PNG("0PNG"),
-    UNKNOWN("nooo");
+    PNG("0PNG");
 
     private final String text;
 
@@ -40,7 +39,7 @@ public enum DataTypes {
             case ".png":
                 return DataTypes.PNG;
             default:
-                return DataTypes.UNKNOWN;
+                return DataTypes.NODATA;
         }
 
     }

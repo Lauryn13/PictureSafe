@@ -74,8 +74,8 @@ public final class PictureUtils {
         return generate_Signature(4);
     }
 
-    public static Object[] convertMetaDataBytes(byte[] data){
-        Object[] result = new Object[9];
+    public static Object[] convertMetaDataBytes(byte[] data, String name){
+        Object[] result = new Object[11];
 
         result[0] = new String(data, 0, 5);
         result[1] = data[5] & 0xFF;
@@ -86,6 +86,8 @@ public final class PictureUtils {
         result[6] = data[15] & 0xFF;
         result[7] = new String(data, 16, 4);
         result[8] = new String(data, 20, 2);
+        result[9] = data[22] & 0xFF;
+        result[10] = name;
 
         return result;
     }

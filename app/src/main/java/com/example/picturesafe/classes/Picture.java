@@ -12,7 +12,9 @@ import com.example.picturesafe.enumerators.DataTypes;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public class Picture {
     private static final String TAG = "Picture";
@@ -69,6 +71,7 @@ public class Picture {
             this.k = (int) metadata[6];
             this.signature = metadata[7].toString();
             this.compressionType = CompressionType.fromText(metadata[8].toString());
+            this.name = metadata[10].toString();
             return true;
         }
         this.signature = PictureUtils.generate_Signature();
@@ -78,22 +81,22 @@ public class Picture {
 
 
     /* ====== Schreiben ====== */
-    private byte[] generate_metadata(int currentPicture, int dataBits){
-        byte[] metadata = new byte[22];
+    private byte[] generate_metadata(int currentPicture, int dataBits, String name){
+        byte[] metadata = new byte[23];
 
         // currently only supports data beginning at the 2nd row
         this.rowsOfData = Math.floorDiv(dataBits / 3, this.width) + 1;
         this.lastRowDataBits = dataBits - (rowsOfData - 1) * this.width * 3 * this.k;
+        int nameBytes = name != null ? name.getBytes().length : 0;
+
         Log.v(TAG, "Metadata: Data Lengths in bits" + dataBits);
         Log.v(TAG, "Metadata: row of data, last row of data: " + this.rowsOfData + " " + this.lastRowDataBits);
-
 
         byte[] dataTypeBytes = this.storedDataType.getText().getBytes();
         byte[] signatureBytes = this.signature.getBytes();
         byte[] pSafeSignatureBytes = PICTURESAFESIGNATURE.getBytes();
         byte[] compressionTypeBytes = this.compressionType.getText().getBytes();
 
-        // TODO check lastRowDataBits are correctly calculated
         assert 0 <= this.lastRowDataBits;
         assert this.lastRowDataBits <= this.width * 3;
         assert this.rowsOfData <= 65535;
@@ -102,6 +105,7 @@ public class Picture {
         assert this.k <= 127;
         assert this.signature != null;
         assert this.signature.length() == 4;
+        assert nameBytes <= 255;
 
         // set metadata in first 22 Bytes
         metadata[0] = pSafeSignatureBytes[0];
@@ -126,14 +130,18 @@ public class Picture {
         metadata[19] = signatureBytes[3];
         metadata[20] = compressionTypeBytes[0];
         metadata[21] = compressionTypeBytes[1];
+        metadata[22] = (byte) nameBytes;
 
         return metadata;
+    }
+    public byte[] generate_metadata(int currentPicture, int dataBits){
+        return this.generate_metadata(currentPicture, dataBits, null);
     }
 
     // update Pixel Data with byteData (do the LSB Stuff)
     // overload return rest of byteData (Data not stored within the picture)
     // TODO need another function that sets the amount of pictures used to store data -> not possible when not every picture has been set yet
-    public void setData(byte[] byteData, int currentPicture, DataTypes dataType){
+    public void setData(byte[] byteData, int currentPicture, DataTypes dataType, String name){
         // TODO add functions and remove hard coding
         this.compressionType = CompressionType.NOCOMPRESSION;
         this.storedDataType = dataType;
@@ -142,8 +150,6 @@ public class Picture {
         int[] binData = PictureUtils.bytesToBinary(byteData);
         int pixelToUpdate = Math.ceilDiv(binData.length, 3);
 
-        Log.v(TAG, "byteData " + Arrays.toString(byteData));
-        Log.v(TAG, "binData " + Arrays.toString(binData));
         Log.v(TAG, "binDataLengths " + binData.length);
         Log.v(TAG, "pixelToUpdate " + pixelToUpdate);
 
@@ -173,10 +179,23 @@ public class Picture {
             this.pixels[pixelsX][pixelsY] = PictureUtils.setLSB(this.pixels[pixelsX][pixelsY], bitR, bitG, bitB);
         }
 
-        byte[] metadata = this.generate_metadata(currentPicture, binData.length);
-        assert metadata.length * 8 <= this.width * 3;
+        byte[] metadata = this.generate_metadata(currentPicture, binData.length, name);
+        assert metadata.length * 8 + name.getBytes().length <= this.width * 3;
 
-        binData = PictureUtils.bytesToBinary(metadata);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            out.write(metadata);
+            out.write(name.getBytes());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        Log.v(TAG, "Name written: " + name);
+        Log.v(TAG, "Name Bytes: " + Arrays.toString(name.getBytes()));
+
+
+        byte[] result = out.toByteArray();
+
+        binData = PictureUtils.bytesToBinary(result);
 
         for(int i = 0; i < Math.ceilDiv(binData.length, 3); i++) {
             int pixelsY = i - Math.floorDiv(i, this.width);
@@ -202,6 +221,9 @@ public class Picture {
         }
 
         this.bitmap = update_bitmap_pixels();
+    }
+    public void setData(byte[] byteData, int currentPicture, DataTypes dataType){
+        this.setData(byteData, currentPicture, dataType, null);
     }
 
 
@@ -261,45 +283,62 @@ public class Picture {
         return pixels;
     }
 
-    public FileData read_content(int lenInBits, boolean readMetadata){
-        int[] binData = new int[lenInBits];
+    public FileData read_content(int lenInBits, boolean readMetadata, int offset){
+        byte[] data;
+        int uselessBits = offset % 3; // useless bits that will be read because of the offset not matching Pixels
+        int[] binData = new int[lenInBits + uselessBits];
         int extraRow = readMetadata ? 0 : 1;
         int pixelToRead = Math.ceilDiv(lenInBits, 3);
+        offset = Math.floorDiv(offset, 3);
 
-        for(int i = 0; i < pixelToRead; i++){
+        for(int i = offset; i < pixelToRead + offset; i++){
             // update Pixel ! needs function for new Pixel calculation.
             int pixelsX = Math.floorDiv(i,this.width) + extraRow;
             int pixelsY = i - Math.floorDiv(i, this.width) * this.width;
 
             int[] binList = PictureUtils.readLSB(this.pixels[pixelsX][pixelsY]);
-            binData[i*3] = binList[0];
+            binData[(i-offset)*3] = binList[0];
 
             try {
-                binData[i*3+1] = binList[1];
+                binData[(i-offset)*3+1] = binList[1];
             }
             catch (ArrayIndexOutOfBoundsException e){
                 break;
             }
 
             try {
-                binData[i*3+2] = binList[2];
+                binData[(i-offset)*3+2] = binList[2];
             }
             catch (ArrayIndexOutOfBoundsException e){
                 break;
             }
         }
 
-        byte[] data = PictureUtils.binaryToBytes(binData);
-        return new FileData(data, this.storedDataType, "textExport");
-    }
+        if(uselessBits != 0){
+            int[] result = Arrays.copyOfRange(binData, uselessBits, binData.length);
+            data = PictureUtils.binaryToBytes(result);
+        }
+        else{
+            data = PictureUtils.binaryToBytes(binData);
+        }
 
+        return new FileData(data, this.storedDataType, this.name);
+    }
     public FileData read_content(){
-        return this.read_content((this.rowsOfData - 1) * this.width * 3 + this.lastRowDataBits, false);
+        return this.read_content((this.rowsOfData - 1) * this.width * 3 + this.lastRowDataBits, false, 0);
+    }
+    public FileData read_content(int lenInBits, boolean readMetadata){
+        return this.read_content(lenInBits, readMetadata, 0);
     }
 
 
     private Object[] read_metadata(){
-        byte[] data = this.read_content(22 * 8, true).content;
-        return PictureUtils.convertMetaDataBytes(data);
+        byte[] data = this.read_content(23 * 8, true).content;
+        int nameBytes = data[22] & 0xFF;
+        String name = new String(this.read_content(nameBytes * 8, true, 23*8).content);
+        Log.v(TAG, "name Length: " + nameBytes);
+        Log.v(TAG, "saved FileName: " + name);
+        Log.v(TAG, "data: " + Arrays.toString(data));
+        return PictureUtils.convertMetaDataBytes(data, name);
     }
 }

@@ -148,6 +148,7 @@ public class MainActivity extends AppCompatActivity {
                         readedText.setText(text);
                     }
                     outputDataLayout.change_visibility(true);
+                    readedText.setText(fileData.name);
                 }
 
                 infoText.setText(
@@ -188,7 +189,12 @@ public class MainActivity extends AppCompatActivity {
             byteData = fileData.convert_to_bytes();
         }
 
-        picture.setData(byteData, 0, fileData.dataType);
+        if(fileData.name != null){
+            picture.setData(byteData,0, fileData.dataType, fileData.name);
+        }
+        else{
+            picture.setData(byteData, 0, fileData.dataType);
+        }
         imageView.setImage(picture.bitmap);
         try {
             Uri uri = picture.generate_png(getBaseContext());

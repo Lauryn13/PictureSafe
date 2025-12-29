@@ -245,6 +245,7 @@ public class Picture {
     }
 
     public Uri generate_png(Context context) throws IOException {
+        // maybe use FileData for Export? -> might not be faster so use this instead
 
         ContentValues values = new ContentValues();
         values.put(MediaStore.Images.Media.DISPLAY_NAME, "output.png");

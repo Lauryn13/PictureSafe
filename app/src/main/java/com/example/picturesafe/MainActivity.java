@@ -32,6 +32,7 @@ public class MainActivity extends AppCompatActivity {
     PictureSafeButton btnSelectPicture;
     PictureSafeButton btnSelectFile;
     PictureSafeButton btnWrite;
+    PictureSafeButton btnExport;
 
     PictureSafeText infoText;
     PictureSafeText fileText;
@@ -66,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
         btnSelectPicture = new PictureSafeButton(getBaseContext(), findViewById(R.id.btnSelect), true);
         btnSelectFile = new PictureSafeButton(getBaseContext(), findViewById(R.id.btnSelectFile));
         btnWrite = new PictureSafeButton(getBaseContext(), findViewById(R.id.btnWrite));
+        btnExport = new PictureSafeButton(getBaseContext(), findViewById(R.id.btnExport));
 
         fileText = new PictureSafeText(findViewById(R.id.fileText), findViewById(R.id.fileCard));
         infoText = new PictureSafeText(findViewById(R.id.infoText), findViewById(R.id.infoCard));
@@ -137,7 +139,7 @@ public class MainActivity extends AppCompatActivity {
                 imageView.setImage(picture.bitmap);
 
                 if(picture.hasData){
-                    FileData fileData = picture.read_content();
+                    fileData = picture.read_content();
 
                     if(picture.storedDataType == DataTypes.JPG){
                         Bitmap outputBitmap = BitmapFactory.decodeByteArray(fileData.content, 0, fileData.content.length);
@@ -149,6 +151,8 @@ public class MainActivity extends AppCompatActivity {
                     }
                     outputDataLayout.change_visibility(true);
                     readedText.setText(fileData.name);
+                    btnExport.set_highlight(true);
+                    btnExport.change_visibility(true);
                 }
 
                 infoText.setText(
@@ -200,6 +204,21 @@ public class MainActivity extends AppCompatActivity {
             Uri uri = picture.generate_png(getBaseContext());
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    public void click_btnExport(View v){
+        if(this.fileData != null){
+            Log.v(TAG, "EXPORTING FILE");
+            try {
+                Uri uri = fileData.export_file(getBaseContext());
+                Log.v(TAG, "URI: " + uri.toString());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        else{
+            Log.v(TAG, "NO FILEDATA");
         }
     }
 }

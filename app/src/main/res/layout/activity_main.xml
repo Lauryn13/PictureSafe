@@ -112,6 +112,20 @@
                         android:scaleType="fitCenter"
                         android:background="@color/elementBackground" />
                 </androidx.cardview.widget.CardView>
+
+            <Button
+                android:id="@+id/btnExport"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:layout_marginBottom="12dp"
+                android:backgroundTint="@color/secondary"
+                android:ellipsize="none"
+                android:text="Export"
+                android:onClick="click_btnExport"
+                android:textColor="@color/secondaryText"
+                app:cornerRadius="50px" />
+
         </LinearLayout>
 
     <LinearLayout

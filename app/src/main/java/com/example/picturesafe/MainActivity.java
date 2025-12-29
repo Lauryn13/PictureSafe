@@ -31,6 +31,7 @@ public class MainActivity extends AppCompatActivity {
 
     PictureSafeButton btnSelectPicture;
     PictureSafeButton btnSelectFile;
+    PictureSafeButton btnReset;
     PictureSafeButton btnWrite;
     PictureSafeButton btnExport;
 
@@ -68,6 +69,7 @@ public class MainActivity extends AppCompatActivity {
         btnSelectFile = new PictureSafeButton(getBaseContext(), findViewById(R.id.btnSelectFile));
         btnWrite = new PictureSafeButton(getBaseContext(), findViewById(R.id.btnWrite));
         btnExport = new PictureSafeButton(getBaseContext(), findViewById(R.id.btnExport));
+        btnReset = new PictureSafeButton(getBaseContext(), findViewById(R.id.btnReset));
 
         fileText = new PictureSafeText(findViewById(R.id.fileText), findViewById(R.id.fileCard));
         infoText = new PictureSafeText(findViewById(R.id.infoText), findViewById(R.id.infoCard));
@@ -96,6 +98,24 @@ public class MainActivity extends AppCompatActivity {
             });
             intent.setType("*/*");
             startActivityForResult(intent, PICK_FILE);
+        });
+
+        btnReset.button.setOnClickListener(v -> {
+            imageView.removeImage();
+            outputImage.removeImage();
+            infoText.removeText();
+            fileText.removeText();
+            readedText.removeText();
+            outputDataLayout.change_visibility(false);
+            insertDataLayout.change_visibility(false);
+
+            btnSelectPicture.set_highlight(true);
+            btnReset.change_visibility(false);
+            btnExport.change_visibility(false);
+            btnWrite.change_visibility(false);
+
+            this.picture = null;
+            this.fileData = null;
         });
 
         tabFile.setOnClickListener(v -> {
@@ -164,6 +184,7 @@ public class MainActivity extends AppCompatActivity {
                btnSelectPicture.set_highlight(false);
                btnSelectFile.change_visibility(true);
                btnWrite.change_visibility(true);
+               btnReset.change_visibility(true);
 
             } catch (Exception e) {
                 e.printStackTrace();

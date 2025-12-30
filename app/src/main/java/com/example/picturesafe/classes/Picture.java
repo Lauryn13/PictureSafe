@@ -150,74 +150,56 @@ public class Picture {
         int[] binData = PictureUtils.bytesToBinary(byteData);
         int pixelToUpdate = Math.ceilDiv(binData.length, 3);
 
+        int bitIndex = 0;
+
+        int pixelsX = 1; // Zeile 0 = Metadata
+        int pixelsY = 0;
+
         Log.v(TAG, "binDataLengths " + binData.length);
         Log.v(TAG, "pixelToUpdate " + pixelToUpdate);
 
         // update Pixels
         for(int i = 0; i < pixelToUpdate; i++){
 
-            int pixelsX = Math.floorDiv(i,this.width) + 1;
-            int pixelsY = i - Math.floorDiv(i, this.width) * this.width;
+            int bitR = binData[bitIndex++];
+            int bitG = (bitIndex < binData.length) ? binData[bitIndex++] : 0;
+            int bitB = (bitIndex < binData.length) ? binData[bitIndex++] : 0;
 
-            int bitR = binData[i*3];
-            int bitG;
-            int bitB;
+            pixels[pixelsX][pixelsY] = PictureUtils.setLSB(pixels[pixelsX][pixelsY], bitR, bitG, bitB);
 
-            try {
-                bitG = binData[i * 3 + 1];
+            if (++pixelsY == width) {
+                pixelsY = 0;
+                pixelsX++;
             }
-            catch (ArrayIndexOutOfBoundsException e){
-                bitG = 0;
-            }
-            try {
-                bitB = binData[i * 3 + 2];
-            }
-            catch (ArrayIndexOutOfBoundsException e){
-                bitB = 0;
-            }
-
-            this.pixels[pixelsX][pixelsY] = PictureUtils.setLSB(this.pixels[pixelsX][pixelsY], bitR, bitG, bitB);
         }
 
+        // Metadaten generieren
         byte[] metadata = this.generate_metadata(currentPicture, binData.length, name);
-        assert metadata.length * 8 + name.getBytes().length <= this.width * 3;
+        byte[] nameBytes = name.getBytes();
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
             out.write(metadata);
-            out.write(name.getBytes());
+            out.write(nameBytes);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         Log.v(TAG, "Name written: " + name);
         Log.v(TAG, "Name Bytes: " + Arrays.toString(name.getBytes()));
 
+        int[] metaBin = PictureUtils.bytesToBinary(out.toByteArray());
+        bitIndex = 0;
+        pixelsY = 0;
 
-        byte[] result = out.toByteArray();
+        // Metadaten schreiben
+        while (bitIndex < metaBin.length) {
+            int bitR = metaBin[bitIndex++];
+            int bitG = (bitIndex < metaBin.length) ? metaBin[bitIndex++] : 0;
+            int bitB = (bitIndex < metaBin.length) ? metaBin[bitIndex++] : 0;
 
-        binData = PictureUtils.bytesToBinary(result);
+            pixels[0][pixelsY] = PictureUtils.setLSB(pixels[0][pixelsY], bitR, bitG, bitB);
 
-        for(int i = 0; i < Math.ceilDiv(binData.length, 3); i++) {
-            int pixelsY = i - Math.floorDiv(i, this.width);
-
-            int bitR = binData[i*3];
-            int bitG;
-            int bitB;
-
-            try {
-                bitG = binData[i * 3 + 1];
-            }
-            catch (ArrayIndexOutOfBoundsException e){
-                bitG = 0;
-            }
-            try {
-                bitB = binData[i * 3 + 2];
-            }
-            catch (ArrayIndexOutOfBoundsException e){
-                bitB = 0;
-            }
-
-            this.pixels[0][pixelsY] = PictureUtils.setLSB(this.pixels[0][pixelsY], bitR, bitG, bitB);
+            pixelsY++;
         }
 
         this.bitmap = update_bitmap_pixels();
@@ -271,58 +253,65 @@ public class Picture {
     // decoding of bitmap into Bytes-Array (changeable data)
     private int[][] read_pixel_array(){
         int[][] pixels = new int[this.height][this.width];
+        int[] flat = new int[width * height];
 
-        for(int y = 0; y < this.height; y++) {
-            for (int x = 0; x < this.width; x++) {
-                pixels[y][x] = this.bitmap.getPixel(x, y);
+        // lesen der Pixel in ein 1D Array
+        this.bitmap.getPixels(flat, 0, width, 0, 0, width, height);
+
+        // umwandeln der Pixel in ein 2D Array
+        for(int y = 0, i = 0; y < this.height; y++) {
+            for (int x = 0; x < this.width; x++, i++) {
+                pixels[y][x] = flat[i];
             }
         }
-
-        // check lengths are correct: Exception handling needed!
-        assert pixels.length == this.height;
-        assert pixels[0].length == this.width;
         return pixels;
     }
 
-    public FileData read_content(int lenInBits, boolean readMetadata, int offset){
-        byte[] data;
-        int uselessBits = offset % 3; // useless bits that will be read because of the offset not matching Pixels
-        int[] binData = new int[lenInBits + uselessBits];
+    public FileData read_content(int lenInBits, boolean readMetadata, int offsetBits) {
+
+        int bitOffset = offsetBits % 3;
+        int startPixel = offsetBits / 3;
+
+        byte[] binData = new byte[lenInBits];
+
         int extraRow = readMetadata ? 0 : 1;
-        int pixelToRead = Math.ceilDiv(lenInBits, 3);
-        offset = Math.floorDiv(offset, 3);
 
-        for(int i = offset; i < pixelToRead + offset; i++){
-            // update Pixel ! needs function for new Pixel calculation.
-            int pixelsX = Math.floorDiv(i,this.width) + extraRow;
-            int pixelsY = i - Math.floorDiv(i, this.width) * this.width;
+        int pixelsX = startPixel / width + extraRow;
+        int pixelsY = startPixel % width;
 
-            int[] binList = PictureUtils.readLSB(this.pixels[pixelsX][pixelsY]);
-            binData[(i-offset)*3] = binList[0];
+        int bi = 0;
 
-            try {
-                binData[(i-offset)*3+1] = binList[1];
+        while (bi < lenInBits) {
+            int pixel = pixels[pixelsX][pixelsY];
+
+            // Reihenfolge: R, G, B
+            int[] bits = {
+                    (pixel >> 16) & 1,
+                    (pixel >> 8)  & 1,
+                    pixel & 1
+            };
+
+            for (int c = bitOffset; c < 3 && bi < lenInBits; c++) {
+                binData[bi++] = (byte) bits[c];
             }
-            catch (ArrayIndexOutOfBoundsException e){
-                break;
-            }
 
-            try {
-                binData[(i-offset)*3+2] = binList[2];
-            }
-            catch (ArrayIndexOutOfBoundsException e){
-                break;
+            bitOffset = 0; // nur beim ersten Pixel relevant
+
+            if (++pixelsY == width) {
+                pixelsY = 0;
+                pixelsX++;
             }
         }
 
-        if(uselessBits != 0){
-            int[] result = Arrays.copyOfRange(binData, uselessBits, binData.length);
-            data = PictureUtils.binaryToBytes(result);
-        }
-        else{
-            data = PictureUtils.binaryToBytes(binData);
-        }
+        // check signature
+//        if(!readMetadata){
+//            binData = PictureUtils.remove_check_signature(binData, this.width, PictureUtils.bytesToBinary(this.signature.getBytes()));
+//            if(binData == null){
+//                return null;
+//            }
+//        }
 
+        byte[] data = PictureUtils.binaryToBytes(binData);
         return new FileData(data, this.storedDataType, this.name);
     }
     public FileData read_content(){

@@ -13,6 +13,10 @@ public enum DataTypes {
 //    MP4("0MP4"),
 //    EXCEL("XLSX"),
 //    WORD("DOCX"),
+//    ZIP("ZIP"),
+//    PPTX("PPTX"),
+//    CSV("CSV"),
+
     PDF("0PDF");
 
     private final String text;

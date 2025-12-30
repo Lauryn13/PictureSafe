@@ -21,12 +21,12 @@ public final class PictureUtils {
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
-    public static int[] readLSB(int pixel){
-        int r = ((pixel >> 16) & 0xFF) % 2;
-        int g = ((pixel >> 8)  & 0xFF) % 2;
-        int b = (pixel         & 0xFF) % 2;
+    public static byte[] readLSB(int pixel){
+        byte r = (byte) (((pixel >> 16) & 0xFF) & 1);
+        byte g = (byte) (((pixel >> 8)  & 0xFF) & 1);
+        byte b = (byte) (( pixel        & 0xFF) & 1);
 
-        return new int[] {r,g,b};
+        return new byte[] {r,g,b};
     }
 
     public static int[] bytesToBinary(byte[] bytes) {
@@ -41,7 +41,7 @@ public final class PictureUtils {
         return bits;
     }
 
-    public static byte[] binaryToBytes(int[] binData){
+    public static byte[] binaryToBytes(byte[] binData){
         int byteLength = (binData.length + 7) / 8;
         byte[] result = new byte[byteLength];
 
@@ -91,4 +91,43 @@ public final class PictureUtils {
 
         return result;
     }
+
+    public static byte[] remove_check_signature(byte[] bits, int imageWidth, int[] signatureBits) {
+        int bitsPerLine = imageWidth * 3;
+        byte[] out = new byte[bits.length];
+        int r = 0; // = bits gelesen (inkludiert die Signatur)
+        int w = 0; // = bits geschrieben (exkludiert die Signatur)
+
+        while (r + 16 <= bits.length) {
+            // Signaturstart
+            int lineBitsLeft = bitsPerLine;
+            int sigStart = 0;
+            for (int i = 0; i < 16; i++) {
+                sigStart = (sigStart << 1) | (bits[r++] & 1);
+            }
+            lineBitsLeft -= 16;
+
+            // Daten vor Signatur
+            int pre = Math.min(sigStart, bits.length - r);
+            System.arraycopy(bits, r, out, w, pre);
+            r += pre;
+            w += pre;
+            lineBitsLeft -= pre;
+
+            // Signatur prüfen
+            for (int i = 0; i < 32; i++) {
+                if ((bits[r++] & 1) != signatureBits[i]) return null;
+            }
+            lineBitsLeft -= 32;
+
+            // Rest der Zeile
+            int rest = Math.min(lineBitsLeft, bits.length - r); // Berechnet Rest der Zeile (entweder bis Bildende oder bis Datenende)
+            System.arraycopy(bits, r, out, w, rest);
+            r += rest;
+            w += rest;
+        }
+
+        return java.util.Arrays.copyOf(out, w);
+    }
+
 }

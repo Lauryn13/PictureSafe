@@ -23,6 +23,7 @@ import android.widget.TextView;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.NoSuchAlgorithmException;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -203,7 +204,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void click_btnWrite(View v){
+    public void click_btnWrite(View v) throws NoSuchAlgorithmException {
         // Exception handling needed
         if(!dataChoosen){
             String textData = saveableText.readText();

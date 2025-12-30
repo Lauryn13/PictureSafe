@@ -12,9 +12,12 @@ import com.example.picturesafe.enumerators.DataTypes;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class Picture {
     private static final String TAG = "Picture";
@@ -72,6 +75,8 @@ public class Picture {
             this.signature = metadata[7].toString();
             this.compressionType = CompressionType.fromText(metadata[8].toString());
             this.name = metadata[10].toString();
+
+            Log.v(TAG, "Signature: " + this.signature);
             return true;
         }
         this.signature = PictureUtils.generate_Signature();
@@ -141,35 +146,58 @@ public class Picture {
     // update Pixel Data with byteData (do the LSB Stuff)
     // overload return rest of byteData (Data not stored within the picture)
     // TODO need another function that sets the amount of pictures used to store data -> not possible when not every picture has been set yet
-    public void setData(byte[] byteData, int currentPicture, DataTypes dataType, String name){
+    public void setData(byte[] byteData, int currentPicture, DataTypes dataType, String name) throws NoSuchAlgorithmException {
         // TODO add functions and remove hard coding
         this.compressionType = CompressionType.NOCOMPRESSION;
         this.storedDataType = dataType;
 
         // convert Data to bin
         int[] binData = PictureUtils.bytesToBinary(byteData);
-        int pixelToUpdate = Math.ceilDiv(binData.length, 3);
+        int[] binSignature = PictureUtils.bytesToBinary(this.signature.getBytes());
 
-        int bitIndex = 0;
+        SecureRandom random = SecureRandom.getInstanceStrong();
+        int randMax = this.width - (16 + 32 + 1);
 
-        int pixelsX = 1; // Zeile 0 = Metadata
-        int pixelsY = 0;
+        int dataBitIndex = 0;
 
-        Log.v(TAG, "binDataLengths " + binData.length);
-        Log.v(TAG, "pixelToUpdate " + pixelToUpdate);
 
-        // update Pixels
-        for(int i = 0; i < pixelToUpdate; i++){
+        for (int row = 1; dataBitIndex < binData.length; row++) {
 
-            int bitR = binData[bitIndex++];
-            int bitG = (bitIndex < binData.length) ? binData[bitIndex++] : 0;
-            int bitB = (bitIndex < binData.length) ? binData[bitIndex++] : 0;
+            int sigPosition = random.nextInt(randMax);
+            int[] binPos = PictureUtils.int_to_16bit_array(sigPosition);
 
-            pixels[pixelsX][pixelsY] = PictureUtils.setLSB(pixels[pixelsX][pixelsY], bitR, bitG, bitB);
+            int[] sigBits = new int[48];
+            System.arraycopy(binPos, 0, sigBits, 0, 16);
+            System.arraycopy(binSignature, 0, sigBits, 16, 32);
 
-            if (++pixelsY == width) {
-                pixelsY = 0;
-                pixelsX++;
+            int sigStartBit = sigPosition + 16;
+            int sigEndBit   = sigStartBit + 31;
+
+            int sigIndex = 0;
+
+            for (int col = 0; col < width; col++) {
+                int pixel = pixels[row][col];
+
+                int r = (pixel >> 16) & 1;
+                int g = (pixel >> 8) & 1;
+                int b = pixel & 1;
+
+                for (int c = 0; c < 3; c++) {
+                    int bitPos = col * 3 + c;
+                    int bit;
+
+                    if (bitPos < 16 || (bitPos >= sigStartBit && bitPos <= sigEndBit)) {
+                        bit = sigBits[sigIndex++];
+                    } else {
+                        bit = (dataBitIndex < binData.length) ? binData[dataBitIndex++] : 0;
+                    }
+
+                    if (c == 0) r = bit;
+                    else if (c == 1) g = bit;
+                    else b = bit;
+                }
+
+                pixels[row][col] = PictureUtils.setLSB(pixel, r, g, b);
             }
         }
 
@@ -188,8 +216,8 @@ public class Picture {
         Log.v(TAG, "Name Bytes: " + Arrays.toString(name.getBytes()));
 
         int[] metaBin = PictureUtils.bytesToBinary(out.toByteArray());
-        bitIndex = 0;
-        pixelsY = 0;
+        int bitIndex = 0;
+        int pixelsY = 0;
 
         // Metadaten schreiben
         while (bitIndex < metaBin.length) {
@@ -204,7 +232,7 @@ public class Picture {
 
         this.bitmap = update_bitmap_pixels();
     }
-    public void setData(byte[] byteData, int currentPicture, DataTypes dataType){
+    public void setData(byte[] byteData, int currentPicture, DataTypes dataType) throws NoSuchAlgorithmException {
         this.setData(byteData, currentPicture, dataType, null);
     }
 
@@ -283,6 +311,8 @@ public class Picture {
 
         while (bi < lenInBits) {
             int pixel = pixels[pixelsX][pixelsY];
+            if(bi < 16)
+                Log.v(TAG, "pixel: " + pixelsX + " " + pixelsY);
 
             // Reihenfolge: R, G, B
             int[] bits = {
@@ -290,6 +320,9 @@ public class Picture {
                     (pixel >> 8)  & 1,
                     pixel & 1
             };
+
+            if(bi < 16)
+                Log.v(TAG, "bits: " + Arrays.toString(bits));
 
             for (int c = bitOffset; c < 3 && bi < lenInBits; c++) {
                 binData[bi++] = (byte) bits[c];
@@ -304,12 +337,12 @@ public class Picture {
         }
 
         // check signature
-//        if(!readMetadata){
-//            binData = PictureUtils.remove_check_signature(binData, this.width, PictureUtils.bytesToBinary(this.signature.getBytes()));
-//            if(binData == null){
-//                return null;
-//            }
-//        }
+        if(!readMetadata){
+            binData = PictureUtils.remove_check_signature(binData, this.width, PictureUtils.bytesToBinary(this.signature.getBytes()));
+            if(binData == null){
+                return null;
+            }
+        }
 
         byte[] data = PictureUtils.binaryToBytes(binData);
         return new FileData(data, this.storedDataType, this.name);

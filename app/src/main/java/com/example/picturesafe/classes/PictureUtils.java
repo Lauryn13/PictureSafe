@@ -1,10 +1,14 @@
 package com.example.picturesafe.classes;
 
+import android.util.Log;
+
 import java.security.SecureRandom;
+import java.util.Arrays;
 
 public final class PictureUtils {
     /* ====== Helper functions for Picture class ====== */
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:',.<>?/";
+    private static final String TAG = "PictureUtils";
 
     private PictureUtils() {}
 
@@ -92,6 +96,15 @@ public final class PictureUtils {
         return result;
     }
 
+    public static int[] int_to_16bit_array(int value){
+        int[] bits = new int[16];
+
+        for (int i = 15; i >= 0; i--) {
+            bits[15 - i] = ((value >> i) & 1);
+        }
+        return bits;
+    }
+
     public static byte[] remove_check_signature(byte[] bits, int imageWidth, int[] signatureBits) {
         int bitsPerLine = imageWidth * 3;
         byte[] out = new byte[bits.length];
@@ -105,6 +118,7 @@ public final class PictureUtils {
             for (int i = 0; i < 16; i++) {
                 sigStart = (sigStart << 1) | (bits[r++] & 1);
             }
+            Log.v(TAG, "sigStart: " + sigStart);
             lineBitsLeft -= 16;
 
             // Daten vor Signatur
@@ -116,7 +130,10 @@ public final class PictureUtils {
 
             // Signatur prüfen
             for (int i = 0; i < 32; i++) {
-                if ((bits[r++] & 1) != signatureBits[i]) return null;
+                if ((bits[r++] & 1) != signatureBits[i]){
+                    Log.v(TAG, "Signature Error");
+                    return null;
+                }
             }
             lineBitsLeft -= 32;
 

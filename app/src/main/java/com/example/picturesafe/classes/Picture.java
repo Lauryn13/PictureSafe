@@ -36,13 +36,14 @@ public class Picture {
 
     private int[][] pixels;
     public DataTypes storedDataType;
+    private int savedDataLength;
     private int rowsOfData;
     private int lastRowDataBits;
 
 
 
     /* ====== Initialisierung ====== */
-    public Picture(Bitmap data, CompressionType compressionType, int k, int s){
+    public Picture(Bitmap data, int k, int s){
         // Constructor
         this.bitmap = data;
 
@@ -58,10 +59,7 @@ public class Picture {
 
     // Overload for standard values (optional parameters)
     public Picture(Bitmap data){
-        this(data,CompressionType.NOCOMPRESSION , 1, 32);
-    }
-    public Picture(Bitmap data, CompressionType compressionType) {
-        this(data, compressionType, 1, 32);
+        this(data, 1, 32);
     }
 
     private boolean check_for_data(){
@@ -74,9 +72,11 @@ public class Picture {
             this.k = (int) metadata[6];
             this.signature = metadata[7].toString();
             this.compressionType = CompressionType.fromText(metadata[8].toString());
-            this.name = metadata[10].toString();
+            this.savedDataLength = (int) metadata[9];
+            this.name = metadata[11].toString();
 
             Log.v(TAG, "Signature: " + this.signature);
+            Log.v(TAG, "CompressionType: " + this.compressionType.text);
             return true;
         }
         this.signature = PictureUtils.generate_Signature();
@@ -87,26 +87,27 @@ public class Picture {
 
     /* ====== Schreiben ====== */
     private byte[] generate_metadata(int currentPicture, int dataBits, String name){
-        byte[] metadata = new byte[23];
+        byte[] metadata = new byte[27];
 
-        // currently only supports data beginning at the 2nd row
+        // Kann sein, dass hier Daten abgeschnitten werden, wenn sie sehr groß sind und sogesehen 1ne Row nur mit Signaturen überdeckt wird.
         this.rowsOfData = Math.floorDiv(dataBits / 3, this.width) + 1;
         this.lastRowDataBits = dataBits - (rowsOfData - 1) * this.width * 3 * this.k;
         int nameBytes = name != null ? name.getBytes().length : 0;
+        int dataLength = this.savedDataLength;
 
         Log.v(TAG, "Metadata: Data Lengths in bits" + dataBits);
         Log.v(TAG, "Metadata: row of data, last row of data: " + this.rowsOfData + " " + this.lastRowDataBits);
 
-        byte[] dataTypeBytes = this.storedDataType.getText().getBytes();
+        byte[] dataTypeBytes = this.storedDataType.text.getBytes();
         byte[] signatureBytes = this.signature.getBytes();
         byte[] pSafeSignatureBytes = PICTURESAFESIGNATURE.getBytes();
-        byte[] compressionTypeBytes = this.compressionType.getText().getBytes();
+        byte[] compressionTypeBytes = this.compressionType.text.getBytes();
 
-        assert 0 <= this.lastRowDataBits;
+        assert 0 < this.lastRowDataBits;
         assert this.lastRowDataBits <= this.width * 3;
         assert this.rowsOfData <= 65535;
         assert this.lastRowDataBits <= 65535;
-        assert this.storedDataType.getText().length() == 4;
+        assert this.storedDataType.text.length() == 4;
         assert this.k <= 127;
         assert this.signature != null;
         assert this.signature.length() == 4;
@@ -135,7 +136,11 @@ public class Picture {
         metadata[19] = signatureBytes[3];
         metadata[20] = compressionTypeBytes[0];
         metadata[21] = compressionTypeBytes[1];
-        metadata[22] = (byte) nameBytes;
+        metadata[22] = (byte) (dataLength >> 24);
+        metadata[23] = (byte) (dataLength >> 16);
+        metadata[24] = (byte) (dataLength >>  8);
+        metadata[25] = (byte) dataLength;
+        metadata[26] = (byte) nameBytes;
 
         return metadata;
     }
@@ -146,10 +151,44 @@ public class Picture {
     // update Pixel Data with byteData (do the LSB Stuff)
     // overload return rest of byteData (Data not stored within the picture)
     // TODO need another function that sets the amount of pictures used to store data -> not possible when not every picture has been set yet
-    public void setData(byte[] byteData, int currentPicture, DataTypes dataType, String name) throws NoSuchAlgorithmException {
+    public void setData(byte[] byteData, int currentPicture, DataTypes dataType, CompressionType compressionType, char[] password, String name) throws NoSuchAlgorithmException {
         // TODO add functions and remove hard coding
-        this.compressionType = CompressionType.NOCOMPRESSION;
         this.storedDataType = dataType;
+        this.savedDataLength = byteData.length;
+        Log.v(TAG, "Compression Type: " + compressionType.text);
+        Log.v(TAG, "password: " + Arrays.toString(password));
+
+        // Compression
+        byte[] compressedData = compressionType.compress_data(byteData);
+
+        if(compressedData == null){
+            Log.v(TAG, "Compression is null");
+        }
+        else{
+            Log.v(TAG, "CompressedData Length: " + compressedData.length);
+        }
+        Log.v(TAG, "Data Length: " + byteData.length);
+
+        if(compressedData != null && compressedData.length < byteData.length) {
+            byteData = compressedData;
+            this.compressionType = compressionType;
+        }
+        else {
+            // Kompressions Array ist größer als nicht komprimiertes Array
+            this.compressionType = compressionType.remove_compression();
+            Log.v(TAG, "Compression Type: " + this.compressionType.text);
+            Log.v(TAG, "COMPRESSION REMOVED");
+        }
+
+
+        // Encryption
+        if(this.compressionType.uses_encryption()){
+            try {
+                byteData = AESEncryption.encrypt(byteData, password);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
 
         // convert Data to bin
         int[] binData = PictureUtils.bytesToBinary(byteData);
@@ -157,13 +196,16 @@ public class Picture {
 
         SecureRandom random = SecureRandom.getInstanceStrong();
         int randMax = this.width - (16 + 32 + 1);
-
         int dataBitIndex = 0;
-
+        int signatureCount = 0;
 
         for (int row = 1; dataBitIndex < binData.length; row++) {
 
             int sigPosition = random.nextInt(randMax);
+
+            if(sigPosition >= binData.length - dataBitIndex - 50)
+                sigPosition = 0;
+
             int[] binPos = PictureUtils.int_to_16bit_array(sigPosition);
 
             int[] sigBits = new int[48];
@@ -174,8 +216,10 @@ public class Picture {
             int sigEndBit   = sigStartBit + 31;
 
             int sigIndex = 0;
+            signatureCount += 48;
 
             for (int col = 0; col < width; col++) {
+                // Jeder Pixel der Reihe
                 int pixel = pixels[row][col];
 
                 int r = (pixel >> 16) & 1;
@@ -183,6 +227,7 @@ public class Picture {
                 int b = pixel & 1;
 
                 for (int c = 0; c < 3; c++) {
+                    // Bit für jeden Pixel
                     int bitPos = col * 3 + c;
                     int bit;
 
@@ -202,8 +247,9 @@ public class Picture {
         }
 
         // Metadaten generieren
-        byte[] metadata = this.generate_metadata(currentPicture, binData.length, name);
+        byte[] metadata = this.generate_metadata(currentPicture, binData.length + signatureCount, name);
         byte[] nameBytes = name.getBytes();
+        // TODO check length of name
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
@@ -232,8 +278,8 @@ public class Picture {
 
         this.bitmap = update_bitmap_pixels();
     }
-    public void setData(byte[] byteData, int currentPicture, DataTypes dataType) throws NoSuchAlgorithmException {
-        this.setData(byteData, currentPicture, dataType, null);
+    public void setData(byte[] byteData, int currentPicture, DataTypes dataType, CompressionType compressionType, char[] password) throws NoSuchAlgorithmException {
+        this.setData(byteData, currentPicture, dataType, compressionType, password, null);
     }
 
 
@@ -295,8 +341,10 @@ public class Picture {
         return pixels;
     }
 
-    public FileData read_content(int lenInBits, boolean readMetadata, int offsetBits) {
-
+    public FileData read_content(int lenInBits, boolean readMetadata, int offsetBits, char[] password) {
+        Log.v(TAG, "reading Content...");
+        if(!readMetadata)
+            Log.v(TAG, "password: " + Arrays.toString(password));
         int bitOffset = offsetBits % 3;
         int startPixel = offsetBits / 3;
 
@@ -311,8 +359,6 @@ public class Picture {
 
         while (bi < lenInBits) {
             int pixel = pixels[pixelsX][pixelsY];
-            if(bi < 16)
-                Log.v(TAG, "pixel: " + pixelsX + " " + pixelsY);
 
             // Reihenfolge: R, G, B
             int[] bits = {
@@ -320,9 +366,6 @@ public class Picture {
                     (pixel >> 8)  & 1,
                     pixel & 1
             };
-
-            if(bi < 16)
-                Log.v(TAG, "bits: " + Arrays.toString(bits));
 
             for (int c = bitOffset; c < 3 && bi < lenInBits; c++) {
                 binData[bi++] = (byte) bits[c];
@@ -343,22 +386,38 @@ public class Picture {
                 return null;
             }
         }
-
         byte[] data = PictureUtils.binaryToBytes(binData);
+
+        if(readMetadata)
+            return new FileData(data, this.storedDataType, this.name);
+
+        // Decompression and Decryption
+        if (this.compressionType.uses_encryption()) {
+            try {
+                data = AESEncryption.decrypt(data, password);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        data = this.compressionType.decompress_data(data, this.savedDataLength);
         return new FileData(data, this.storedDataType, this.name);
     }
+    public FileData read_content(char[] password){
+        return this.read_content((this.rowsOfData - 1) * this.width * 3 + this.lastRowDataBits, false, 0, password);
+    }
     public FileData read_content(){
-        return this.read_content((this.rowsOfData - 1) * this.width * 3 + this.lastRowDataBits, false, 0);
+        return this.read_content((this.rowsOfData - 1) * this.width * 3 + this.lastRowDataBits, false, 0, null);
     }
     public FileData read_content(int lenInBits, boolean readMetadata){
-        return this.read_content(lenInBits, readMetadata, 0);
+        return this.read_content(lenInBits, readMetadata, 0, null);
     }
 
 
     private Object[] read_metadata(){
-        byte[] data = this.read_content(23 * 8, true).content;
-        int nameBytes = data[22] & 0xFF;
-        String name = new String(this.read_content(nameBytes * 8, true, 23*8).content);
+        byte[] data = this.read_content(27 * 8, true).content;
+        int nameBytes = data[26] & 0xFF;
+        String name = new String(this.read_content(nameBytes * 8, true, 27*8, null).content);
         Log.v(TAG, "name Length: " + nameBytes);
         Log.v(TAG, "saved FileName: " + name);
         Log.v(TAG, "data: " + Arrays.toString(data));

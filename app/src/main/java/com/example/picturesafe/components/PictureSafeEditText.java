@@ -42,4 +42,8 @@ public class PictureSafeEditText {
    public String readText() {
        return this.editText.getText().toString();
    }
+
+   public void clear_text(){
+        this.editText.setText("");
+   }
 }

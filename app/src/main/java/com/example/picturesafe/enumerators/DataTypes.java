@@ -19,20 +19,16 @@ public enum DataTypes {
 
     PDF("0PDF");
 
-    private final String text;
+    public final String text;
 
     DataTypes(String text) {
         this.text = text;
     }
 
-    public String getText() {
-        return text;
-    }
-
     public static DataTypes fromText(String text) {
         // returns DataType from saved String in Picture
         for (DataTypes dt : values()) {
-            if (dt.getText().equals(text)) return dt;
+            if (dt.text.equals(text)) return dt;
         }
         return NODATA;
     }

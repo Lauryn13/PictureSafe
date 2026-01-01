@@ -41,4 +41,5 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+    implementation("org.lz4:lz4-java:1.8.0")
 }

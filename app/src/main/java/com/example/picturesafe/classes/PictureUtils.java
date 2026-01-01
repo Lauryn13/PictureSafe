@@ -79,7 +79,7 @@ public final class PictureUtils {
     }
 
     public static Object[] convertMetaDataBytes(byte[] data, String name){
-        Object[] result = new Object[11];
+        Object[] result = new Object[12];
 
         result[0] = new String(data, 0, 5);
         result[1] = data[5] & 0xFF;
@@ -90,8 +90,9 @@ public final class PictureUtils {
         result[6] = data[15] & 0xFF;
         result[7] = new String(data, 16, 4);
         result[8] = new String(data, 20, 2);
-        result[9] = data[22] & 0xFF;
-        result[10] = name;
+        result[9] = ((data[22] & 0xFF) << 24 ) | ((data[23] & 0xFF) << 16) | ((data[24] & 0xFF) << 8) | (data[25] & 0xFF);
+        result[10] = data[26] & 0xFF;
+        result[11] = name;
 
         return result;
     }
@@ -118,7 +119,6 @@ public final class PictureUtils {
             for (int i = 0; i < 16; i++) {
                 sigStart = (sigStart << 1) | (bits[r++] & 1);
             }
-            Log.v(TAG, "sigStart: " + sigStart);
             lineBitsLeft -= 16;
 
             // Daten vor Signatur

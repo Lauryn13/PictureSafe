@@ -2,28 +2,37 @@ package com.example.picturesafe;
 import com.example.picturesafe.classes.FileData;
 import com.example.picturesafe.classes.Picture;
 import com.example.picturesafe.components.PictureSafeButton;
+import com.example.picturesafe.components.PictureSafeCheckBox;
+import com.example.picturesafe.components.PictureSafeDropDown;
 import com.example.picturesafe.components.PictureSafeEditText;
 import com.example.picturesafe.components.PictureSafeImage;
 import com.example.picturesafe.components.PictureSafeLayout;
 import com.example.picturesafe.components.PictureSafeText;
+import com.example.picturesafe.enumerators.CompressionType;
 import com.example.picturesafe.enumerators.DataTypes;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.util.Consumer;
 
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.widget.CompoundButton;
 import android.widget.TextView;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -41,6 +50,10 @@ public class MainActivity extends AppCompatActivity {
     PictureSafeText readedText;
 
     PictureSafeEditText saveableText;
+    PictureSafeEditText passwordText;
+
+    PictureSafeDropDown compressionDropDown;
+    PictureSafeCheckBox encryptionCheckBox;
 
     PictureSafeLayout insertDataLayout;
     PictureSafeLayout outputDataLayout;
@@ -66,11 +79,11 @@ public class MainActivity extends AppCompatActivity {
         insertDataLayout = new PictureSafeLayout(findViewById(R.id.insertDataLayout));
         outputDataLayout = new PictureSafeLayout(findViewById(R.id.outputDataLayout));
 
-        btnSelectPicture = new PictureSafeButton(getBaseContext(), findViewById(R.id.btnSelect), true);
-        btnSelectFile = new PictureSafeButton(getBaseContext(), findViewById(R.id.btnSelectFile));
-        btnWrite = new PictureSafeButton(getBaseContext(), findViewById(R.id.btnWrite));
-        btnExport = new PictureSafeButton(getBaseContext(), findViewById(R.id.btnExport));
-        btnReset = new PictureSafeButton(getBaseContext(), findViewById(R.id.btnReset));
+        btnSelectPicture = new PictureSafeButton(this, findViewById(R.id.btnSelect), true);
+        btnSelectFile = new PictureSafeButton(this, findViewById(R.id.btnSelectFile));
+        btnWrite = new PictureSafeButton(this, findViewById(R.id.btnWrite));
+        btnExport = new PictureSafeButton(this, findViewById(R.id.btnExport));
+        btnReset = new PictureSafeButton(this, findViewById(R.id.btnReset));
 
         fileText = new PictureSafeText(findViewById(R.id.fileText), findViewById(R.id.fileCard));
         infoText = new PictureSafeText(findViewById(R.id.infoText), findViewById(R.id.infoCard));
@@ -80,6 +93,10 @@ public class MainActivity extends AppCompatActivity {
         outputImage = new PictureSafeImage(findViewById(R.id.outputImage), findViewById(R.id.outputCard));
 
         saveableText = new PictureSafeEditText(findViewById(R.id.saveableText), findViewById(R.id.saveableCard));
+        passwordText = new PictureSafeEditText(findViewById(R.id.passwordText), findViewById(R.id.passwordCard));
+
+        compressionDropDown = new PictureSafeDropDown(this, findViewById(R.id.compressionSpinner));
+        encryptionCheckBox = new PictureSafeCheckBox(findViewById(R.id.textEncryption), findViewById(R.id.checkBoxEncrytion));
 
         dataChoosen = true;
 
@@ -109,6 +126,9 @@ public class MainActivity extends AppCompatActivity {
             readedText.removeText();
             outputDataLayout.change_visibility(false);
             insertDataLayout.change_visibility(false);
+            encryptionCheckBox.change_visibility(true);
+            compressionDropDown.change_visibility(true);
+            compressionDropDown.reset_selected_item();
 
             btnSelectPicture.set_highlight(true);
             btnReset.change_visibility(false);
@@ -117,6 +137,17 @@ public class MainActivity extends AppCompatActivity {
 
             this.picture = null;
             this.fileData = null;
+        });
+
+        encryptionCheckBox.checkBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(@NonNull CompoundButton buttonView, boolean isChecked) {
+                if (isChecked) {
+                    passwordText.change_visibility(true);
+                } else {
+                    passwordText.change_visibility(false);
+                }
+            }
         });
 
         tabFile.setOnClickListener(v -> {
@@ -160,20 +191,19 @@ public class MainActivity extends AppCompatActivity {
                 imageView.setImage(picture.bitmap);
 
                 if(picture.hasData){
-                    fileData = picture.read_content();
-
-                    if(picture.storedDataType == DataTypes.JPG){
-                        Bitmap outputBitmap = BitmapFactory.decodeByteArray(fileData.content, 0, fileData.content.length);
-                        outputImage.setImage(outputBitmap);
+                    if(picture.compressionType.uses_encryption()){
+                        showPasswordDialog(password -> {
+                            Log.v(TAG, "Password from Edit: " + Arrays.toString(password));
+                            fileData = this.read_file_data(password);
+                            passwordText.clear_text();
+                            // Passwort nach nutzung überschreiben
+                            Arrays.fill(password, '0');
+                        });
+                        Log.v(TAG, "continue reading after Password input.");
                     }
-                    else if(picture.storedDataType == DataTypes.TEXTDATA){
-                        String text = new String(fileData.content);
-                        readedText.setText(text);
+                    else{
+                        fileData = this.read_file_data();
                     }
-                    outputDataLayout.change_visibility(true);
-                    readedText.setText(fileData.name);
-                    btnExport.set_highlight(true);
-                    btnExport.change_visibility(true);
                 }
 
                 infoText.setText(
@@ -186,6 +216,8 @@ public class MainActivity extends AppCompatActivity {
                btnSelectFile.change_visibility(true);
                btnWrite.change_visibility(true);
                btnReset.change_visibility(true);
+               encryptionCheckBox.change_visibility(true);
+               compressionDropDown.change_visibility(true);
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -194,7 +226,7 @@ public class MainActivity extends AppCompatActivity {
         else if(requestCode == PICK_FILE && resultCode == RESULT_OK){
             // Datei auswählen
             try {
-                fileData = new FileData(getBaseContext(), uri);
+                fileData = new FileData(this, uri);
                 fileText.setText(fileData.name);
                 Log.v(TAG, "FILE WAS READED.");
             } catch (Exception e) {
@@ -215,15 +247,19 @@ public class MainActivity extends AppCompatActivity {
             byteData = fileData.convert_to_bytes();
         }
 
+        CompressionType compressionType = CompressionType.fromUI(encryptionCheckBox, compressionDropDown);
+        Log.v(TAG, "compressionType returns as: " + compressionType.text);
+        char[] password = passwordText.readText().toCharArray();
+
         if(fileData.name != null){
-            picture.setData(byteData,0, fileData.dataType, fileData.name);
+            picture.setData(byteData,0, fileData.dataType, compressionType, password, fileData.name);
         }
         else{
-            picture.setData(byteData, 0, fileData.dataType);
+            picture.setData(byteData, 0, fileData.dataType, compressionType, password);
         }
         imageView.setImage(picture.bitmap);
         try {
-            Uri uri = picture.generate_png(getBaseContext());
+            Uri uri = picture.generate_png(this);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -233,7 +269,7 @@ public class MainActivity extends AppCompatActivity {
         if(this.fileData != null){
             Log.v(TAG, "EXPORTING FILE");
             try {
-                Uri uri = fileData.export_file(getBaseContext());
+                Uri uri = fileData.export_file(this);
                 Log.v(TAG, "URI: " + uri.toString());
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -242,5 +278,45 @@ public class MainActivity extends AppCompatActivity {
         else{
             Log.v(TAG, "NO FILEDATA");
         }
+    }
+
+
+    private FileData read_file_data(char[] password){
+        fileData = picture.read_content(password);
+
+        if(picture.storedDataType == DataTypes.JPG){
+            Bitmap outputBitmap = BitmapFactory.decodeByteArray(fileData.content, 0, fileData.content.length);
+            outputImage.setImage(outputBitmap);
+            readedText.setText(fileData.name);
+        }
+        else if(picture.storedDataType == DataTypes.TEXTDATA){
+            String text = new String(fileData.content);
+            readedText.setText(text);
+        }
+        outputDataLayout.change_visibility(true);
+        btnExport.set_highlight(true);
+        btnExport.change_visibility(true);
+
+        return fileData;
+    }
+    private FileData read_file_data(){
+        return this.read_file_data(null);
+    }
+
+    private void showPasswordDialog(Consumer<char[]> onPassword) {
+        View view = LayoutInflater.from(this).inflate(R.layout.password_dialog, null);
+
+        PictureSafeEditText pwEdit = new PictureSafeEditText(view.findViewById(R.id.passwordText), view.findViewById(R.id.passwordCard), true);
+
+        new AlertDialog.Builder(this)
+                .setTitle("Verschlüsselte Daten")
+                .setView(view)
+                .setCancelable(false)
+                .setPositiveButton("Entschlüsseln", (d, w) -> {
+                    char[] pw = pwEdit.readText().toCharArray();
+                    onPassword.accept(pw);
+                })
+                .setNegativeButton("Abbrechen", null)
+                .show();
     }
 }

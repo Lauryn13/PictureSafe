@@ -1,0 +1,213 @@
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+
+    <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="22dp"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Daten Auswählen"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/elementBackgroundText"
+                android:gravity="center"
+                android:layout_marginBottom="16dp" />
+
+            <!-- TAB BUTTONS -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_margin="12dp"
+            app:cardBackgroundColor="@color/primary"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="6dp">
+
+           <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                app:cardCornerRadius="16dp"
+                android:padding="4dp">
+
+                <TextView
+                    android:id="@+id/tabFile"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="Datei"
+                    app:cardCornerRadius="16dp"
+                    android:textColor="@color/primaryText"
+                    android:background="@color/primaryVariant"/>
+
+                <TextView
+                    android:id="@+id/tabText"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="Text"
+                    app:cardCornerRadius="16dp"
+                    android:background="@color/primary"
+                    android:textColor="@color/primaryText"/>
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/saveableCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="12dp"
+                app:cardBackgroundColor="@color/elementBackground"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="6dp">
+
+                <EditText
+                    android:id="@+id/saveableText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:backgroundTint="@color/elementBackground"
+                    android:hint="Text zum Verstecken"
+                    android:padding="12dp"
+                    android:textColor="@color/elementBackgroundText"
+                    android:textColorHint="#0a0a0a"
+                    android:visibility="visible" />
+
+            </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/fileCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="12dp"
+            app:cardBackgroundColor="@color/elementBackground"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="6dp">
+
+            <TextView
+                android:id="@+id/fileText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/elementBackground"
+                android:padding="12dp"
+                android:textColor="@color/elementBackgroundText" />
+
+        </androidx.cardview.widget.CardView>
+
+            <Button
+                android:id="@+id/btnSelectFile"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:backgroundTint="@color/primary"
+                android:text="Datei auswählen"
+                android:textColor="@color/primaryText"
+                app:cornerRadius="50px" />
+
+
+
+        <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Verschlüsseln / Komprimieren"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:paddingTop="50dp"
+                android:textColor="@color/elementBackgroundText"
+                android:gravity="center"
+                android:layout_marginBottom="16dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:layout_marginLeft="15dp"
+            android:orientation="horizontal">
+
+            <CheckBox
+                android:id="@+id/checkBoxEncrytion"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:buttonTint="@color/primary" />
+
+            <TextView
+                android:id="@+id/textEncryption"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:text="Verschlüsselung aktivieren"
+                android:textColor="@color/elementBackgroundText"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="12dp"
+            app:cardBackgroundColor="@color/elementBackground"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="6dp">
+
+            <Spinner
+                android:id="@+id/compressionSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/primary"
+                android:padding="12dp" />
+
+        </androidx.cardview.widget.CardView>
+
+
+
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/passwordCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="12dp"
+                app:cardBackgroundColor="@color/elementBackground"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="6dp">
+
+                <EditText
+                    android:id="@+id/passwordText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:backgroundTint="@color/elementBackground"
+                    android:hint="Passwort"
+                    android:padding="12dp"
+                    android:textColor="@color/elementBackgroundText"
+                    android:textColorHint="#0a0a0a"
+                    android:inputType="textPassword"
+                    android:textCursorDrawable="@drawable/color_cursor"
+                    android:maxLines="1"
+                    android:importantForAutofill="no" />
+            </androidx.cardview.widget.CardView>
+
+
+
+            <Button
+                android:id="@+id/btnWrite"
+                android:onClick="click_btnWrite"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:backgroundTint="@color/primary"
+                android:text="Daten schreiben"
+                android:textColor="@color/primaryText"
+                app:cornerRadius="50px" />
+            </LinearLayout>
+</ScrollView>

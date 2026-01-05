@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--        Daten speichern       -->
+
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="22dp"
+            android:padding="16dp">
+
+         <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Gespeicherte Daten"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/elementBackgroundText"
+                android:gravity="center"
+                android:layout_marginBottom="16dp" />
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/readedCard"
+                android:layout_width="match_parent"
+                android:layout_height="100px"
+                android:layout_margin="12dp"
+                app:cardBackgroundColor="@color/elementBackground"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="6dp">
+
+                <TextView
+                    android:id="@+id/readedText"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:textAlignment="center"
+                    android:gravity="center"
+                    android:background="@color/elementBackground"
+                    android:textColor="@color/elementBackgroundText" />
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- Output Bild -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/outputCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="12dp"
+                app:cardBackgroundColor="@color/elementBackground"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="6dp">
+
+                <ImageView
+                    android:id="@+id/outputImage"
+                    android:layout_width="match_parent"
+                    android:layout_height="430dp"
+                    android:background="@color/elementBackground"
+                    android:scaleType="fitCenter" />
+            </androidx.cardview.widget.CardView>
+
+        <Button
+            android:id="@+id/btnExport"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:layout_marginBottom="12dp"
+            android:backgroundTint="@color/primary"
+            android:ellipsize="none"
+            android:text="Export"
+            android:textColor="@color/primaryText"
+            app:cornerRadius="50px" />
+
+    </LinearLayout>
+</ScrollView>

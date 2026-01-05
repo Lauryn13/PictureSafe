@@ -26,10 +26,10 @@ public class PictureSafeDropDown {
     public void setItems() {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 context,
-                android.R.layout.simple_spinner_item,
+                R.layout.spinner_item,
                 CompressionDropdown.get_all_strings()
         );
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        adapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         this.spinner.setAdapter(adapter);
     }
 

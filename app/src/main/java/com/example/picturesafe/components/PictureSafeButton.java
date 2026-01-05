@@ -38,10 +38,14 @@ public class PictureSafeButton{
 
     public void set_highlight(boolean is_highlighted){
         if(is_highlighted) {
-            this.button.setBackgroundColor(context.getColor(R.color.secondary));
+            this.button.setBackgroundColor(context.getColor(R.color.primaryVariant));
         }
         else{
             this.button.setBackgroundColor(context.getColor(R.color.primary));
         }
+    }
+
+    public void change_text(String text){
+        ((Button)this.button).setText(text);
     }
 }

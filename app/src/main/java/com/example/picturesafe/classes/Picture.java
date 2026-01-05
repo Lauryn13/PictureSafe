@@ -32,6 +32,7 @@ public class Picture {
 
     public int storeable_data_in_kb;
     public boolean hasData;
+    public boolean dataIsCorrupted;
     public CompressionType compressionType;
 
     private int[][] pixels;
@@ -55,6 +56,8 @@ public class Picture {
         this.pixels = this.read_pixel_array();
 
         this.hasData = this.check_for_data();
+        // TODO set in reading
+        this.dataIsCorrupted = false;
     }
 
     // Overload for standard values (optional parameters)
@@ -81,6 +84,11 @@ public class Picture {
         }
         this.signature = PictureUtils.generate_Signature();
         return false;
+    }
+
+    public String generate_info_text(){
+        return  "Auflösung: " + this.width + " x " + this.height +
+                "\nSpeicherbare Datenmenge: " + this.storeable_data_in_kb + " KiloBytes";
     }
 
 

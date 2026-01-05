@@ -1,0 +1,18 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/nav_image"
+        android:icon="@drawable/ic_image"
+        android:title="Bild"/>
+
+    <item
+        android:id="@+id/nav_saved"
+        android:icon="@drawable/ic_storage"
+        android:title="Gespeichert"/>
+
+    <item
+        android:id="@+id/nav_add"
+        android:icon="@drawable/ic_add"
+        android:title="Hinzufügen"/>
+
+</menu>

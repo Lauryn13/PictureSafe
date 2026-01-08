@@ -24,10 +24,11 @@
 
             <!-- Bild auswählen -->
             <LinearLayout
-                android:layout_width="match_parent"
+                android:layout_width="350dp"
+                android:layout_gravity="center"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginBottom="12dp">
+                android:layout_marginBottom="8dp">
 
                 <!-- Reset Button -->
                 <ImageButton
@@ -54,6 +55,24 @@
             </LinearLayout>
 
 
+<!--            <androidx.cardview.widget.CardView-->
+<!--                android:id="@+id/imageCard"-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="wrap_content"-->
+<!--                android:layout_margin="12dp"-->
+<!--                app:cardBackgroundColor="@color/elementBackground"-->
+<!--                app:cardCornerRadius="16dp"-->
+<!--                app:cardElevation="6dp">-->
+
+<!--                <ImageView-->
+<!--                    android:id="@+id/imageView"-->
+<!--                    android:layout_width="match_parent"-->
+<!--                    android:layout_height="430dp"-->
+<!--                    android:background="@color/elementBackground"-->
+<!--                    android:maxHeight="200dp"-->
+<!--                    android:scaleType="fitCenter" />-->
+<!--            </androidx.cardview.widget.CardView>-->
+
             <androidx.cardview.widget.CardView
                 android:id="@+id/imageCard"
                 android:layout_width="match_parent"
@@ -63,21 +82,46 @@
                 app:cardCornerRadius="16dp"
                 app:cardElevation="6dp">
 
-                <ImageView
-                    android:id="@+id/imageView"
-                    android:layout_width="match_parent"
-                    android:layout_height="430dp"
-                    android:background="@color/elementBackground"
-                    android:maxHeight="200dp"
-                    android:scaleType="fitCenter" />
+                <LinearLayout
+                    android:layout_width="350dp"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- Thumbnail-Leiste -->
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="80dp"
+                        android:scrollbars="horizontal"
+                        android:fillViewport="false">
+
+                        <LinearLayout
+                            android:id="@+id/thumbnailContainer"
+                            android:layout_width="wrap_content"
+                            android:layout_height="400dp"
+                            android:orientation="horizontal"
+                            android:padding="8dp"/>
+                    </HorizontalScrollView>
+
+                    <!-- Großes Bild -->
+                    <ImageView
+                        android:id="@+id/mainImage"
+                        android:layout_width="match_parent"
+                        android:layout_height="320dp"
+                        android:scaleType="fitCenter"
+                        android:paddingBottom="8dp"
+                        android:background="@color/elementBackground"/>
+                </LinearLayout>
+
             </androidx.cardview.widget.CardView>
 
     <!--        Metadaten zum Bild      -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/infoCard"
-                android:layout_width="match_parent"
+                android:layout_width="350dp"
+                android:layout_gravity="center"
                 android:layout_height="wrap_content"
-                android:layout_margin="12dp"
+                android:layout_margin="2dp"
+                android:paddingBottom="12dp"
                 app:cardBackgroundColor="@color/elementBackground"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="6dp">

@@ -16,7 +16,6 @@ import com.example.picturesafe.MainViewModel;
 import com.example.picturesafe.R;
 import com.example.picturesafe.components.PictureSafeButton;
 import com.example.picturesafe.components.PictureSafeImage;
-import com.example.picturesafe.components.PictureSafeLayout;
 import com.example.picturesafe.components.PictureSafeText;
 
 import java.io.IOException;
@@ -46,14 +45,16 @@ public class SavedFragment extends Fragment {
 
         // Load Picturedata if possible and set all up
 
-        if(mvm.picture == null)
+        if(mvm.pictures == null)
             this.readedText.setText("Bitte wähle zunächst ein Foto zum lesen aus.");
-        else if(!mvm.picture.hasData || mvm.fileData == null)
-            this.readedText.setText("Dieses Bild hat keinen gespeicherten Inhalt.");
-        else if (mvm.picture.hasData && mvm.picture.dataIsCorrupted)
+        else if(mvm.picturesAreIncomplete)
+            this.readedText.setText("Zum wiederherstellen der Daten sind nicht alle Bilder vorhanden.");
+        else if (mvm.picturesHasData && mvm.picturesDataIsCorrupted)
             this.readedText.setText("Die Inhalte des Bildes wurden überschrieben und dadurch zerstört.");
+        else if(!mvm.picturesHasData || mvm.fileData == null)
+            this.readedText.setText("Dieses Bild hat keinen gespeicherten Inhalt.");
         else{
-            switch (mvm.picture.storedDataType){
+            switch (mvm.storedDataType){
                 case JPG:
                 case PNG:
                     Bitmap outputBitmap = BitmapFactory.decodeByteArray(mvm.fileData.content, 0, mvm.fileData.content.length);

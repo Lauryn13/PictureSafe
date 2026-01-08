@@ -38,8 +38,8 @@ public class AESEncryption {
         byte[] encrypted = cipher.doFinal(data);
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        out.write(salt);      // 16 Bytes
-        out.write(iv);        // 12 Bytes (GCM)
+        out.write(salt);
+        out.write(iv);
         out.write(encrypted);
 
         return out.toByteArray();

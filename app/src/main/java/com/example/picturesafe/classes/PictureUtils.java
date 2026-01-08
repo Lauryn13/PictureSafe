@@ -64,7 +64,7 @@ public final class PictureUtils {
         return result;
     }
 
-    public static String generate_Signature(int length){
+    public static String generate_signature(int length){
         final SecureRandom random = new SecureRandom();
 
         StringBuilder sb = new StringBuilder(length);
@@ -74,8 +74,19 @@ public final class PictureUtils {
         }
         return sb.toString();
     }
-    public static String generate_Signature(){
-        return generate_Signature(4);
+    public static String generate_signature(){
+        return generate_signature(4);
+    }
+
+    public static String generate_info_text(Picture[] pictures, int curIdx){
+        Picture curPicture = pictures[curIdx];
+        float storable_mb = 0;
+        float picture_storable_mb = ((float) Math.round((float) curPicture.storeable_data_in_byte / 1000 / 10)) / 100; // durch 100 um auf 2 dezimalstellen zu runden
+        for(Picture pic : pictures) {
+            storable_mb += ((float) Math.round((float) pic.storeable_data_in_byte / 1000 / 10)) / 100;
+        }
+
+        return "Aktuelles Foto:\nAuflösung: " + curPicture.width + "x" + curPicture.height + "\nSpeicherbare Datenmenge: " + picture_storable_mb + " Mb"  + "\n\nIn allen Bildern zusammen könnten " + storable_mb + " Mb Daten gespeichert werden.";
     }
 
     public static Object[] convertMetaDataBytes(byte[] data, String name){
@@ -146,5 +157,4 @@ public final class PictureUtils {
 
         return java.util.Arrays.copyOf(out, w);
     }
-
 }

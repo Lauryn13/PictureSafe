@@ -22,17 +22,18 @@ import androidx.lifecycle.ViewModelProvider;
 import com.example.picturesafe.MainViewModel;
 import com.example.picturesafe.R;
 import com.example.picturesafe.classes.FileData;
+import com.example.picturesafe.classes.Picture;
 import com.example.picturesafe.components.PictureSafeButton;
 import com.example.picturesafe.components.PictureSafeCheckBox;
 import com.example.picturesafe.components.PictureSafeDropDown;
 import com.example.picturesafe.components.PictureSafeEditText;
-import com.example.picturesafe.components.PictureSafeLayout;
 import com.example.picturesafe.components.PictureSafeText;
 import com.example.picturesafe.enumerators.CompressionType;
 import com.example.picturesafe.enumerators.DataTypes;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 
 
 public class AddFragment extends Fragment {
@@ -113,7 +114,12 @@ public class AddFragment extends Fragment {
             saveableText.change_visibility(false);
 
             if(mvm.fileData != null){
-                fileText.setText(mvm.fileData.name);
+                float storable_mb = 0;
+                for(Picture pic : mvm.pictures) {
+                    storable_mb += ((float) Math.round((float) pic.storeable_data_in_byte / 1000 / 10)) / 100;
+                }
+                float fileLength = (float) Math.round((float) mvm.fileData.content.length / 1000 / 10) / 100;
+                fileText.setText(mvm.fileData.name + "\n\nGröße: " + fileLength + " Mb \n Maximal Speicherbare Größe: " + storable_mb + " Mb");
                 btnWrite.change_visibility(true);
             }
             else
@@ -135,19 +141,23 @@ public class AddFragment extends Fragment {
         });
 
         // load picture data and set all up
-        if(mvm.picture == null) {
+        if(mvm.pictures == null) {
             btnWrite.button.setEnabled(false);
             btnWrite.change_visibility(true);
         }
 
         if(mvm.fileData != null){
-            fileText.setText(mvm.fileData.name);
+            float storable_mb = 0;
+            for(Picture pic : mvm.pictures) {
+                storable_mb += ((float) Math.round((float) pic.storeable_data_in_byte / 1000 / 10)) / 100;
+            }
+            float fileLength = (float) Math.round((float) mvm.fileData.content.length / 1000 / 10) / 100;
+            fileText.setText(mvm.fileData.name + "\n\nGröße: " + fileLength + " Mb \n Maximal Speicherbare Größe: " + storable_mb + " Mb");
             btnSelectFile.change_text("Neue Datei auswählen");
             btnWrite.change_visibility(true);
         }
         else
             btnWrite.change_visibility(false);
-
 
         return view;
     }
@@ -158,6 +168,8 @@ public class AddFragment extends Fragment {
             String textData = saveableText.readText();
             mvm.fileData = new FileData(textData.getBytes(), DataTypes.TEXTDATA, "textExport");
         }
+        else
+            assert mvm.fileData != null;
 
         byte[] byteData = mvm.fileData.convert_to_bytes();
 
@@ -165,17 +177,70 @@ public class AddFragment extends Fragment {
         Log.v(TAG, "compressionType returns as: " + compressionType.text);
         char[] password = passwordText.readText().toCharArray();
 
-        if(mvm.fileData.name != null){
-            mvm.picture.setData(byteData,0, mvm.fileData.dataType, compressionType, password, mvm.fileData.name);
+        // TODO add Information, that data will not be saved in all pictures?
+
+        Log.v(TAG, "File Data Length: " + byteData.length);
+        Log.v(TAG, "First Picture Length: " + mvm.pictures[0].storeable_data_in_byte);
+
+        // setting data in pictures
+        if(byteData.length <= mvm.pictures[0].storeable_data_in_byte){
+            // Daten passen in einem Bild
+            mvm.pictures[0].setData(byteData, 1, mvm.fileData.dataType, compressionType, password, mvm.fileData.name);
+            try {
+                Uri uri = mvm.pictures[0].generate_png(requireContext());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+
+            if(mvm.pictures.length != 1){
+                // TODO ADD INFO TEXT
+            }
         }
         else{
-            mvm.picture.setData(byteData, 0, mvm.fileData.dataType, compressionType, password);
+            // check length of FileData not longer then space in files
+            int spaceInPictures = 0;
+            int[] spacesPerPicture = new int[mvm.pictures.length];
+            for(Picture pic : mvm.pictures) {
+                spaceInPictures += pic.storeable_data_in_byte;
+                spacesPerPicture[pic.currentPicture - 1] = spaceInPictures;
+            }
+            Log.v(TAG, "Space in Pictures: " + spaceInPictures);
+            Log.v(TAG, "Space per Picture: " + Arrays.toString(spacesPerPicture));
+
+            int neededPictures = 1;
+
+            while(spacesPerPicture[neededPictures - 1] < byteData.length)
+                neededPictures++;
+
+            Log.v(TAG, "Needed Pictures: " + neededPictures);
+
+            int offset = 0;
+
+            for(int i = 0; i < neededPictures; i++) {
+                // split Data
+                int length = Math.min(mvm.pictures[i].storeable_data_in_byte, byteData.length - offset);
+
+                byte[] saveableByteData = new byte[length];
+
+                System.arraycopy(byteData, offset, saveableByteData, 0, length);
+                mvm.pictures[i].setData(saveableByteData, neededPictures, mvm.fileData.dataType, compressionType, password, mvm.fileData.name);
+
+                try {
+                    Uri uri = mvm.pictures[i].generate_png(requireContext());
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+
+                offset += length;
+            }
+
+            if(mvm.pictures.length != neededPictures){
+                // TODO ADD INFO TEXT
+            }
         }
-        try {
-            Uri uri = mvm.picture.generate_png(requireContext());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+
+        passwordText.clear_text();
+        Arrays.fill(password, '\0');
     }
 
     public void load_file(Uri data) {

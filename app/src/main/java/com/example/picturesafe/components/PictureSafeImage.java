@@ -1,6 +1,7 @@
 package com.example.picturesafe.components;
 
 import android.graphics.Bitmap;
+import android.net.Uri;
 import android.widget.ImageView;
 
 import androidx.cardview.widget.CardView;
@@ -35,6 +36,10 @@ public class PictureSafeImage {
     public void setImage(Bitmap bitmap){
         this.changeVisibility(true);
         this.imageView.setImageBitmap(bitmap);
+    }
+    public void setImage(Uri uri) {
+        this.changeVisibility(true);
+        this.imageView.setImageURI(uri);
     }
 
     public void removeImage(){

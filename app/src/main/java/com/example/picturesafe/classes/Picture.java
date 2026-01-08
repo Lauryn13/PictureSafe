@@ -11,13 +11,9 @@ import com.example.picturesafe.enumerators.CompressionType;
 import com.example.picturesafe.enumerators.DataTypes;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class Picture {
     private static final String TAG = "Picture";
@@ -27,48 +23,53 @@ public class Picture {
     public String name;
     public int height;
     public int width;
+    public int amountOfPictures;
+    public int currentPicture;
     public int k; // Number of used LSB-Bits
     public String signature; // Signature of the picture
 
-    public int storeable_data_in_kb;
+    public int storeable_data_in_byte;
     public boolean hasData;
     public boolean dataIsCorrupted;
     public CompressionType compressionType;
 
     private int[][] pixels;
     public DataTypes storedDataType;
-    private int savedDataLength;
-    private int rowsOfData;
-    private int lastRowDataBits;
+    public int savedDataLength;
+    private int rowsOfData; // Zeilen in denen Daten gespeichert wurden, inkludiert die letzte (evt. nicht volle Reihe)
+    private int lastRowDataBits; // Anzahl der Bits die in der letzten Spalte gespeichert wurden (nicht Index!!)
 
 
 
     /* ====== Initialisierung ====== */
-    public Picture(Bitmap data, int k, int s){
+    public Picture(Bitmap data, int currentPicture, String signature, int k){
         // Constructor
         this.bitmap = data;
 
         this.width = this.bitmap.getWidth();
         this.height = this.bitmap.getHeight();
         this.k = k;
+        this.currentPicture = currentPicture;
 
-        this.storeable_data_in_kb = ((width * (height-1)*3*k) - (s+16)*(height-1)) / 8000;
+        this.storeable_data_in_byte = ((width * (height-1) * 3 * k) - (32 + 16) * (height - 1)) / 8;
         this.pixels = this.read_pixel_array();
 
-        this.hasData = this.check_for_data();
+        this.hasData = this.check_for_data(signature);
         // TODO set in reading
         this.dataIsCorrupted = false;
     }
 
     // Overload for standard values (optional parameters)
-    public Picture(Bitmap data){
-        this(data, 1, 32);
+    public Picture(Bitmap data, int currentPicture, String signature){
+        this(data, currentPicture, signature, 1);
     }
 
-    private boolean check_for_data(){
+    private boolean check_for_data(String signature){
         Object[] metadata = this.read_metadata();
 
         if(metadata[0].equals(PICTURESAFESIGNATURE)){
+            this.amountOfPictures = (int) metadata[1];
+            this.currentPicture = (int) metadata[2];
             this.rowsOfData = (int) metadata[3];
             this.lastRowDataBits = (int) metadata[4];
             this.storedDataType = DataTypes.fromText(metadata[5].toString());
@@ -82,29 +83,39 @@ public class Picture {
             Log.v(TAG, "CompressionType: " + this.compressionType.text);
             return true;
         }
-        this.signature = PictureUtils.generate_Signature();
+        this.signature = signature;
+
+        Log.v(TAG, "amountOfPictures: " + this.amountOfPictures);
+        Log.v(TAG, "currentPicture: " + this.currentPicture);
+
         return false;
     }
 
     public String generate_info_text(){
         return  "Auflösung: " + this.width + " x " + this.height +
-                "\nSpeicherbare Datenmenge: " + this.storeable_data_in_kb + " KiloBytes";
+                "\nSpeicherbare Datenmenge: " + this.storeable_data_in_byte + " KiloBytes";
     }
 
 
 
     /* ====== Schreiben ====== */
-    private byte[] generate_metadata(int currentPicture, int dataBits, String name){
+    private byte[] generate_metadata(int amountOfPictures, int dataBits, String name){
         byte[] metadata = new byte[27];
 
         // Kann sein, dass hier Daten abgeschnitten werden, wenn sie sehr groß sind und sogesehen 1ne Row nur mit Signaturen überdeckt wird.
-        this.rowsOfData = Math.floorDiv(dataBits / 3, this.width) + 1;
+        // -1 bisschen unsicher, sollte aber dafür sorgen das lastRowDataBist richtig funktioniert (vor allem bei voller Zeile) -> kein Edge case gefunden wo es nicht läuft
+        this.rowsOfData = Math.floorDiv((dataBits - 1) / 3, this.width) + 1;
         this.lastRowDataBits = dataBits - (rowsOfData - 1) * this.width * 3 * this.k;
+        this.amountOfPictures = amountOfPictures;
+
+        Log.v(TAG, "DataBits with Signature: " + dataBits);
+        Log.v(TAG, "rowsOfData: " + rowsOfData);
+        Log.v(TAG, "lastRowDataBits: " + lastRowDataBits);
+        Log.v(TAG, "width: " + this.width);
+        Log.v(TAG, "height: " + this.height);
+
         int nameBytes = name != null ? name.getBytes().length : 0;
         int dataLength = this.savedDataLength;
-
-        Log.v(TAG, "Metadata: Data Lengths in bits" + dataBits);
-        Log.v(TAG, "Metadata: row of data, last row of data: " + this.rowsOfData + " " + this.lastRowDataBits);
 
         byte[] dataTypeBytes = this.storedDataType.text.getBytes();
         byte[] signatureBytes = this.signature.getBytes();
@@ -120,6 +131,8 @@ public class Picture {
         assert this.signature != null;
         assert this.signature.length() == 4;
         assert nameBytes <= 255;
+        assert amountOfPictures <= 255;
+        assert currentPicture <= 255;
 
         // set metadata in first 22 Bytes
         metadata[0] = pSafeSignatureBytes[0];
@@ -127,7 +140,7 @@ public class Picture {
         metadata[2] = pSafeSignatureBytes[2];
         metadata[3] = pSafeSignatureBytes[3];
         metadata[4] = pSafeSignatureBytes[4];
-        metadata[5] = (byte) 0; // amount of Pictures (can not be set here yet)
+        metadata[5] = (byte) amountOfPictures;
         metadata[6] = (byte) currentPicture; // maximum 127 Pictures -> exception handling needed
         metadata[7] = (byte) (this.rowsOfData >> 8); // Erster Byte
         metadata[8] = (byte) this.rowsOfData; // 2 Byte
@@ -152,14 +165,11 @@ public class Picture {
 
         return metadata;
     }
-    public byte[] generate_metadata(int currentPicture, int dataBits){
-        return this.generate_metadata(currentPicture, dataBits, null);
-    }
 
     // update Pixel Data with byteData (do the LSB Stuff)
     // overload return rest of byteData (Data not stored within the picture)
     // TODO need another function that sets the amount of pictures used to store data -> not possible when not every picture has been set yet
-    public void setData(byte[] byteData, int currentPicture, DataTypes dataType, CompressionType compressionType, char[] password, String name) throws NoSuchAlgorithmException {
+    public void setData(byte[] byteData, int amountOfPictures, DataTypes dataType, CompressionType compressionType, char[] password, String name) throws NoSuchAlgorithmException {
         // TODO add functions and remove hard coding
         this.storedDataType = dataType;
         this.savedDataLength = byteData.length;
@@ -255,7 +265,7 @@ public class Picture {
         }
 
         // Metadaten generieren
-        byte[] metadata = this.generate_metadata(currentPicture, binData.length + signatureCount, name);
+        byte[] metadata = this.generate_metadata(amountOfPictures, binData.length + signatureCount, name);
         byte[] nameBytes = name.getBytes();
         // TODO check length of name
 
@@ -286,26 +296,23 @@ public class Picture {
 
         this.bitmap = update_bitmap_pixels();
     }
-    public void setData(byte[] byteData, int currentPicture, DataTypes dataType, CompressionType compressionType, char[] password) throws NoSuchAlgorithmException {
-        this.setData(byteData, currentPicture, dataType, compressionType, password, null);
-    }
 
-
-    public void setAmountofPictures(int amountofPictures){
-        // TODO
-    }
 
 
     /* ====== Export ====== */
-    private Bitmap update_bitmap_pixels(){
-        Bitmap newBitmap = Bitmap.createBitmap(this.width, this.height, Bitmap.Config.ARGB_8888);
+    private Bitmap update_bitmap_pixels() {
+        Bitmap bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+
+        int[] flat = new int[width * height];
+        int pos = 0;
 
         for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                newBitmap.setPixel(x, y, this.pixels[y][x]);
-            }
+            System.arraycopy(pixels[y], 0, flat, pos, width);
+            pos += width;
         }
-        return newBitmap;
+
+        bmp.setPixels(flat, 0, width, 0, 0, width, height);
+        return bmp;
     }
 
     public Uri generate_png(Context context) throws IOException {

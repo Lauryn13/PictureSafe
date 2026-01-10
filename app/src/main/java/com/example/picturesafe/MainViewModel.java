@@ -1,14 +1,11 @@
 package com.example.picturesafe;
 
-import android.net.Uri;
-
 import androidx.lifecycle.ViewModel;
 
 import com.example.picturesafe.classes.FileData;
 import com.example.picturesafe.classes.Picture;
 import com.example.picturesafe.enumerators.DataTypes;
 
-import java.util.List;
 
 public class MainViewModel extends ViewModel {
     public Picture[] pictures;

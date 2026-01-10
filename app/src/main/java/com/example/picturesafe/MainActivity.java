@@ -1,5 +1,4 @@
 package com.example.picturesafe;
-import static androidx.core.content.ContentProviderCompat.requireContext;
 
 import com.example.picturesafe.fragments.AddFragment;
 import com.example.picturesafe.fragments.ImageFragment;
@@ -13,23 +12,17 @@ import androidx.fragment.app.Fragment;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
-import android.util.Log;
-import android.util.TypedValue;
+
+import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
-    private static final String TAG = "MainActivity";
-
-    // Request Codes
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         BottomNavigationView bottomNav = findViewById(R.id.bottomNav);
-        getSupportFragmentManager()
-                .beginTransaction()
-                .replace(R.id.fragment_container, new ImageFragment())
-                .commit();
+        getSupportFragmentManager().beginTransaction().replace(R.id.fragment_container, new ImageFragment()).commit();
 
         bottomNav.setOnItemSelectedListener(item -> {
             Fragment fragment;
@@ -42,18 +35,14 @@ public class MainActivity extends AppCompatActivity {
                 fragment = new AddFragment();
             }
 
-            getSupportFragmentManager()
-                    .beginTransaction()
-                    .replace(R.id.fragment_container, fragment)
-                    .commit();
+            getSupportFragmentManager().beginTransaction().replace(R.id.fragment_container, fragment).commit();
 
             return true;
         });
 
         ActionBar actionBar = getSupportActionBar();
-        ColorDrawable colorDrawable
-                = new ColorDrawable(Color.parseColor("#2A2A2A"));
-
+        Objects.requireNonNull(actionBar);
+        ColorDrawable colorDrawable = new ColorDrawable(Color.parseColor("#2A2A2A"));
         actionBar.setBackgroundDrawable(colorDrawable);
     }
 }

@@ -4,8 +4,6 @@ import android.content.Context;
 import android.widget.Button;
 import android.view.View;
 
-import com.example.picturesafe.R;
-
 public class PictureSafeButton{
     public View button;
     Context context;
@@ -33,15 +31,6 @@ public class PictureSafeButton{
         }
         else{
             this.button.setVisibility(Button.GONE);
-        }
-    }
-
-    public void set_highlight(boolean is_highlighted){
-        if(is_highlighted) {
-            this.button.setBackgroundColor(context.getColor(R.color.primaryVariant));
-        }
-        else{
-            this.button.setBackgroundColor(context.getColor(R.color.primary));
         }
     }
 

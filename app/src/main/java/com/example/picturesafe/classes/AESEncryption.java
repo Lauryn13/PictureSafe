@@ -1,8 +1,8 @@
 package com.example.picturesafe.classes;
 
-import android.util.Log;
-
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.security.spec.KeySpec;
 import java.util.Arrays;
@@ -15,7 +15,7 @@ import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
 public class AESEncryption {
-    private static SecretKey generateKey(char[] password, byte[] salt) throws Exception {
+    private static SecretKey generateKey(char[] password, byte[] salt) throws GeneralSecurityException{
         SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
 
         KeySpec spec = new PBEKeySpec(password, salt, 77777, 256);
@@ -24,13 +24,10 @@ public class AESEncryption {
         return new SecretKeySpec(keyBytes, "AES");
     }
 
-    public static byte[] encrypt(byte[] data, char[] password) throws Exception {
+    public static byte[] encrypt(byte[] data, char[] password) throws GeneralSecurityException, IOException{
         byte[] salt = SecureRandom.getInstanceStrong().generateSeed(16);
 
-        Log.v("ENCRYPTION", "password: " + Arrays.toString(password));
-        Log.v("ENCRYPTION", "salt: " + Arrays.toString(salt));
         SecretKey key = generateKey(password, salt);
-
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(Cipher.ENCRYPT_MODE, key);
 
@@ -45,15 +42,10 @@ public class AESEncryption {
         return out.toByteArray();
     }
 
-    public static byte[] decrypt(byte[] encryptedData, char[] password)
-            throws Exception {
-
+    public static byte[] decrypt(byte[] encryptedData, char[] password) throws GeneralSecurityException {
         byte[] salt = Arrays.copyOfRange(encryptedData, 0, 16);
         byte[] iv   = Arrays.copyOfRange(encryptedData, 16, 28);
         byte[] data = Arrays.copyOfRange(encryptedData, 28, encryptedData.length);
-
-        Log.v("ENCRYPTION", "password: " + Arrays.toString(password));
-        Log.v("ENCRYPTION", "salt: " + Arrays.toString(salt));
 
         SecretKey key = generateKey(password, salt);
 

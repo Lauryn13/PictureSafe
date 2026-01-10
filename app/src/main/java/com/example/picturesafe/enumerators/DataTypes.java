@@ -50,6 +50,16 @@ public enum DataTypes {
             default:
                 return DataTypes.NODATA;
         }
+    }
 
+    public static String getExtension(DataTypes dataType){
+        if(dataType == DataTypes.NODATA){
+            return ".bin";
+        }
+        if(dataType.text.startsWith("0")){
+            return "." + dataType.text.substring(1).toLowerCase();
+        } else {
+            return "." + dataType.text.toLowerCase();
+        }
     }
 }

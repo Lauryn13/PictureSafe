@@ -29,20 +29,24 @@ import com.example.picturesafe.classes.FileData;
 import com.example.picturesafe.classes.Picture;
 import com.example.picturesafe.classes.PictureUtils;
 import com.example.picturesafe.components.PictureSafeButton;
+import com.example.picturesafe.components.PictureSafeDialog;
 import com.example.picturesafe.components.PictureSafeEditText;
 import com.example.picturesafe.components.PictureSafeImage;
 import com.example.picturesafe.components.PictureSafeText;
 import com.example.picturesafe.enumerators.DataTypes;
+import com.example.picturesafe.exceptions.PictureSafeBaseException;
+import com.example.picturesafe.exceptions.PictureSafeFileNotFoundException;
 
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Dictionary;
 import java.util.List;
+import java.util.Objects;
 
 
 public class ImageFragment extends Fragment {
-    private static final String TAG = "ImageFragment";
 
     MainViewModel mvm;
     private ActivityResultLauncher<Intent> pickImageLauncher;
@@ -69,10 +73,17 @@ public class ImageFragment extends Fragment {
                 } else {
                     uris.add(result.getData().getData());
                 }
-                Log.v(TAG, "URIS: " + uris.toArray().length);
 
                 Uri[] uriArray = uris.toArray(new Uri[0]);
-                this.loadImages(uriArray);
+
+                try{
+                    this.loadImages(uriArray);
+                } catch (PictureSafeBaseException e){
+                    PictureSafeDialog.show(getParentFragmentManager(),e);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+
                 this.showImages();
             }
         });
@@ -109,7 +120,6 @@ public class ImageFragment extends Fragment {
 
         // Load Picturedata if possible and set all up
         if(mvm.pictures != null){
-            // TODO add more Metadata read while getting the picture.
             showImages(mvm.selectedPicture);
             infoText.setText(PictureUtils.generate_info_text(mvm.pictures, mvm.selectedPicture));
             btnReset.change_visibility(true);
@@ -152,67 +162,67 @@ public class ImageFragment extends Fragment {
         this.showImages(0);
     }
 
-    private void loadImages(Uri[] uris){
+    private void loadImages(Uri[] uris) throws IOException {
         Picture[] pictures = new Picture[uris.length];
-        Log.v(TAG, "URIS readed: " + pictures.length);
 
-        // Bild auswählen
-        try {
-            boolean hasData = false;
-            boolean dataIsCorrupted = false;
-            DataTypes storedDataType = null;
-            boolean usesEncrytion = false;
-            String signature = PictureUtils.generate_signature();
+        boolean hasData = false;
+        boolean dataIsCorrupted = false;
+        DataTypes storedDataType = null;
+        boolean usesEncrytion = false;
+        String signature = PictureUtils.generate_signature();
 
-            // Bild als Bitmap laden
-            // Nullable abfangen!
-            for(int i = 0; i < uris.length; i++){
-                InputStream inputStream = requireContext().getContentResolver().openInputStream(uris[i]);
-                Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
-                inputStream.close();
-                pictures[i] = new Picture(bitmap, i+1, signature);
-
-                if (pictures[i].hasData) {
-                    hasData = true;
-                    storedDataType = pictures[i].storedDataType;
-                    if(!dataIsCorrupted)
-                        dataIsCorrupted = pictures[i].dataIsCorrupted;
-                    if(pictures[i].compressionType.uses_encryption())
-                        usesEncrytion = true;
-                }
+        // Bild als Bitmap laden
+        // Nullable abfangen!
+        for(int i = 0; i < uris.length; i++){
+            InputStream inputStream;
+            try {
+                inputStream = requireContext().getContentResolver().openInputStream(uris[i]);
+            } catch (FileNotFoundException e){
+                throw new PictureSafeFileNotFoundException();
             }
+            Objects.requireNonNull(inputStream);
 
-            mvm.pictures = pictures;
-            mvm.picturesLoaded = true;
-            mvm.picturesAreIncomplete = false;
-            mvm.picturesHasData = hasData;
-            mvm.picturesDataIsCorrupted = dataIsCorrupted;
-            mvm.selectedPicture = 0;
-            mvm.storedDataType = storedDataType;
+            Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+            inputStream.close();
+            pictures[i] = new Picture(bitmap, i+1, signature);
 
-            if(hasData){
-                // TODO
-                if(usesEncrytion){
-                    showPasswordDialog(password -> {
-                        Log.v(TAG, "Password from Edit: " + Arrays.toString(password));
-                        this.read_file_data(password);
-                        // Passwort nach nutzung überschreiben
-                        Arrays.fill(password, '0');
-                    });
-                    Log.v(TAG, "continue reading after Password input.");
-                }
-                else{
-                    this.read_file_data();
-                }
+            if (pictures[i].hasData) {
+                hasData = true;
+                storedDataType = pictures[i].storedDataType;
+                if(!dataIsCorrupted)
+                    dataIsCorrupted = pictures[i].dataIsCorrupted;
+                if(pictures[i].compressionType.uses_encryption())
+                    usesEncrytion = true;
             }
-
-            // TODO add generate Info text to pictureutils
-            infoText.setText(PictureUtils.generate_info_text(mvm.pictures, mvm.selectedPicture));
-            btnReset.change_visibility(true);
-
-        } catch (Exception e) {
-            e.printStackTrace();
         }
+
+        mvm.pictures = pictures;
+        mvm.picturesLoaded = true;
+        mvm.picturesAreIncomplete = false;
+        mvm.picturesHasData = hasData;
+        mvm.picturesDataIsCorrupted = dataIsCorrupted;
+        mvm.selectedPicture = 0;
+        mvm.storedDataType = storedDataType;
+
+        if(hasData){
+            if(usesEncrytion){
+                showPasswordDialog(password -> {
+                    try {
+                        this.read_file_data(password);
+                    } catch (PictureSafeBaseException e) {
+                        PictureSafeDialog.show(getParentFragmentManager(), e);
+                    }
+                    // Passwort nach nutzung überschreiben
+                    Arrays.fill(password, '0');
+                });
+            }
+            else{
+                this.read_file_data();
+            }
+        }
+
+        infoText.setText(PictureUtils.generate_info_text(mvm.pictures, mvm.selectedPicture));
+        btnReset.change_visibility(true);
     }
 
     private void read_file_data(char[] password){
@@ -235,7 +245,13 @@ public class ImageFragment extends Fragment {
                    // at this Point only this hidden file is read no matter if other pictures with other files exist
                    signature = picture.signature;
 
-               data[picture.currentPicture - 1] = picture.read_content(password).content;
+               Log.v("ImageFragement", "currentPicture: " + picture.currentPicture);
+               try {
+                   data[picture.currentPicture - 1] = picture.read_content(password).content;
+               } catch (IndexOutOfBoundsException e){
+                   mvm.picturesAreIncomplete = true;
+                   return;
+               }
                name = picture.name;
                completeDataLength += picture.savedDataLength;
                picturesWithData = picture.amountOfPictures;
@@ -243,6 +259,14 @@ public class ImageFragment extends Fragment {
         }
 
         byte[] completeData = new byte[completeDataLength];
+
+        Log.v("Image", "picWithData: "+picturesWithData);
+        Log.v("Image", "data.length: "+data.length);
+        if(picturesWithData > data.length){
+            mvm.picturesAreIncomplete = true;
+            return;
+        }
+
         for(int i = 0; i < picturesWithData; i++){
             if(data[i] == null){
                 mvm.picturesAreIncomplete = true;
@@ -277,9 +301,7 @@ public class ImageFragment extends Fragment {
                     onPassword.accept(pw);
                     pwEdit.clear_text();
                 })
-                .setNegativeButton("Abbrechen", (d, w) -> {
-                    pwEdit.clear_text();
-                })
+                .setNegativeButton("Abbrechen", (d, w) -> pwEdit.clear_text())
                 .show();
     }
 }

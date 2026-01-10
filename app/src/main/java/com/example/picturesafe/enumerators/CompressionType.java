@@ -6,6 +6,7 @@ import com.example.picturesafe.classes.Compression;
 import com.example.picturesafe.components.PictureSafeCheckBox;
 import com.example.picturesafe.components.PictureSafeDropDown;
 
+import java.io.IOException;
 import java.util.zip.Deflater;
 
 public enum CompressionType {
@@ -54,7 +55,7 @@ public enum CompressionType {
     }
 
     public static CompressionType fromUI(PictureSafeCheckBox checkBox, PictureSafeDropDown dropDown){
-        CompressionType compType = null;
+        CompressionType compType;
         CompressionDropdown comDropDown = dropDown.getSelectedItem();
         Log.v("COMPRESSIONTYPE", "comDropDown: " + comDropDown);
 
@@ -113,7 +114,7 @@ public enum CompressionType {
         }
     }
 
-    public byte[] compress_data(byte[] data){
+    public byte[] compress_data(byte[] data) throws IOException {
         // Komprimiert die Daten je nach ausgewählten Algorithmus.
         // Liefert null, wenn die daten unkomprimiert kürzer sind.
         byte[] compressed_data = null;

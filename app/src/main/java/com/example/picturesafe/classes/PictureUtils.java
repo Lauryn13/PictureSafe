@@ -1,14 +1,13 @@
 package com.example.picturesafe.classes;
 
-import android.util.Log;
+import com.example.picturesafe.enumerators.DataTypes;
+import com.example.picturesafe.exceptions.PictureSafeDataCorruptedException;
 
 import java.security.SecureRandom;
-import java.util.Arrays;
 
 public final class PictureUtils {
     /* ====== Helper functions for Picture class ====== */
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:',.<>?/";
-    private static final String TAG = "PictureUtils";
 
     private PictureUtils() {}
 
@@ -23,14 +22,6 @@ public final class PictureUtils {
         b = (b & ~1) | (bitB & 1);
 
         return (a << 24) | (r << 16) | (g << 8) | b;
-    }
-
-    public static byte[] readLSB(int pixel){
-        byte r = (byte) (((pixel >> 16) & 0xFF) & 1);
-        byte g = (byte) (((pixel >> 8)  & 0xFF) & 1);
-        byte b = (byte) (( pixel        & 0xFF) & 1);
-
-        return new byte[] {r,g,b};
     }
 
     public static int[] bytesToBinary(byte[] bytes) {
@@ -52,7 +43,7 @@ public final class PictureUtils {
         for (int i = 0; i < binData.length; i++) {
             int byteIndex = i / 8;
             result[byteIndex] <<= 1;
-            result[byteIndex] |= (binData[i] & 1);
+            result[byteIndex] |= (byte) (binData[i] & 1);
         }
 
         // Letztes Byte ggf. auffüllen, falls nicht 8 Bits
@@ -91,6 +82,11 @@ public final class PictureUtils {
 
     public static Object[] convertMetaDataBytes(byte[] data, String name){
         Object[] result = new Object[12];
+
+        if(name == null){
+            DataTypes storedDataType = DataTypes.fromText(new String(data, 11, 4));
+            name = "output" + DataTypes.getExtension(storedDataType);
+        }
 
         result[0] = new String(data, 0, 5);
         result[1] = data[5] & 0xFF;
@@ -142,8 +138,7 @@ public final class PictureUtils {
             // Signatur prüfen
             for (int i = 0; i < 32; i++) {
                 if ((bits[r++] & 1) != signatureBits[i]){
-                    Log.v(TAG, "Signature Error");
-                    return null;
+                    throw new PictureSafeDataCorruptedException();
                 }
             }
             lineBitsLeft -= 32;

@@ -22,7 +22,7 @@ public enum CompressionDropdown {
     }
 
     public static String[] get_all_strings(){
-        String value_strings[] = new String[values().length];
+        String[] value_strings = new String[values().length];
         for(int i = 0; i < values().length; i++){
             value_strings[i] = values()[i].text;
         }

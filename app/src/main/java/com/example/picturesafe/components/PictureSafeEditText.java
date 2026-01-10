@@ -31,14 +31,6 @@ public class PictureSafeEditText {
         }
     }
 
-    public void showEdit(String text) {
-        this.change_visibility(true);
-        this.editText.setText(text);
-    }
-    public void showEdit(){
-        this.showEdit("");
-    }
-
    public String readText() {
        return this.editText.getText().toString();
    }

@@ -19,9 +19,6 @@ public class PictureSafeDropDown {
         change_visibility(visible);
         setItems();
     }
-    public PictureSafeDropDown(Context context, Spinner spinner) {
-        this(context, spinner, false);
-    }
 
     public void setItems() {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
@@ -39,9 +36,5 @@ public class PictureSafeDropDown {
 
     public CompressionDropdown getSelectedItem() {
         return CompressionDropdown.from_text(this.spinner.getSelectedItem().toString());
-    }
-
-    public void reset_selected_item(){
-        this.spinner.setSelection(0);
     }
 }

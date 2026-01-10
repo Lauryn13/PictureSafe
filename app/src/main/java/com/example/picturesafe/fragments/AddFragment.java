@@ -5,16 +5,13 @@ import static android.app.Activity.RESULT_OK;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.CompoundButton;
 import android.widget.TextView;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
@@ -25,19 +22,22 @@ import com.example.picturesafe.classes.FileData;
 import com.example.picturesafe.classes.Picture;
 import com.example.picturesafe.components.PictureSafeButton;
 import com.example.picturesafe.components.PictureSafeCheckBox;
+import com.example.picturesafe.components.PictureSafeDialog;
 import com.example.picturesafe.components.PictureSafeDropDown;
 import com.example.picturesafe.components.PictureSafeEditText;
 import com.example.picturesafe.components.PictureSafeText;
 import com.example.picturesafe.enumerators.CompressionType;
 import com.example.picturesafe.enumerators.DataTypes;
+import com.example.picturesafe.exceptions.PictureSafeBaseException;
+import com.example.picturesafe.exceptions.PictureSafeDataWontFitInImageException;
+import com.example.picturesafe.exceptions.PictureSafeMissingPasswordException;
+import com.example.picturesafe.exceptions.PictureSafeNotAllPicturesUsed;
 
 import java.io.IOException;
-import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
 
 public class AddFragment extends Fragment {
-    private static final String TAG = "SavedFragment";
     private ActivityResultLauncher<Intent> pickFileLauncher;
     MainViewModel mvm;
 
@@ -54,7 +54,11 @@ public class AddFragment extends Fragment {
 
         this.pickFileLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
             if(result.getResultCode() == RESULT_OK && result.getData() != null){
-                this.load_file(result.getData().getData());
+                try {
+                    this.load_file(result.getData().getData());
+                } catch (PictureSafeBaseException e){
+                    PictureSafeDialog.show(getParentFragmentManager(), e);
+                }
             }
         });
     }
@@ -77,7 +81,6 @@ public class AddFragment extends Fragment {
         TextView tabText = view.findViewById(R.id.tabText);
 
         btnSelectFile.button.setOnClickListener(v -> {
-            Log.v(TAG, "btnSelectFile clicked");
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
             intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
@@ -92,21 +95,12 @@ public class AddFragment extends Fragment {
         btnWrite.button.setOnClickListener(v -> {
             try {
                 click_btnWrite();
-            } catch (NoSuchAlgorithmException e) {
-                throw new RuntimeException(e);
+            } catch (PictureSafeBaseException e){
+                PictureSafeDialog.show(getParentFragmentManager(), e);
             }
         });
 
-        encryptionCheckBox.checkBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(@NonNull CompoundButton buttonView, boolean isChecked) {
-                if (isChecked) {
-                    passwordText.change_visibility(true);
-                } else {
-                    passwordText.change_visibility(false);
-                }
-            }
-        });
+        encryptionCheckBox.checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> passwordText.change_visibility(isChecked));
 
         tabFile.setOnClickListener(v -> {
             mvm.dataChoosen = true;
@@ -115,12 +109,17 @@ public class AddFragment extends Fragment {
 
             if(mvm.fileData != null){
                 float storable_mb = 0;
-                for(Picture pic : mvm.pictures) {
-                    storable_mb += ((float) Math.round((float) pic.storeable_data_in_byte / 1000 / 10)) / 100;
+                if(mvm.pictures != null) {
+                    for (Picture pic : mvm.pictures) {
+                        storable_mb += ((float) Math.round((float) pic.storeable_data_in_byte / 1000 / 10)) / 100;
+                    }
+
+                    float fileLength = (float) Math.round((float) mvm.fileData.content.length / 1000 / 10) / 100;
+                    fileText.setText(mvm.fileData.name + "\n\nGröße: " + fileLength + " Mb \n Maximal Speicherbare Größe: " + storable_mb + " Mb");
+                    btnWrite.change_visibility(true);
                 }
-                float fileLength = (float) Math.round((float) mvm.fileData.content.length / 1000 / 10) / 100;
-                fileText.setText(mvm.fileData.name + "\n\nGröße: " + fileLength + " Mb \n Maximal Speicherbare Größe: " + storable_mb + " Mb");
-                btnWrite.change_visibility(true);
+                else
+                    fileText.setText("Bitte wähle zunächst ein Bild zum Speichern aus!\n Dateiname: " + mvm.fileData.name);
             }
             else
                 btnWrite.change_visibility(false);
@@ -148,11 +147,16 @@ public class AddFragment extends Fragment {
 
         if(mvm.fileData != null){
             float storable_mb = 0;
-            for(Picture pic : mvm.pictures) {
-                storable_mb += ((float) Math.round((float) pic.storeable_data_in_byte / 1000 / 10)) / 100;
+            if(mvm.pictures != null) {
+                for (Picture pic : mvm.pictures) {
+                    storable_mb += ((float) Math.round((float) pic.storeable_data_in_byte / 1000 / 10)) / 100;
+                }
+
+                float fileLength = (float) Math.round((float) mvm.fileData.content.length / 1000 / 10) / 100;
+                fileText.setText(mvm.fileData.name + "\n\nGröße: " + fileLength + " Mb \n Maximal Speicherbare Größe: " + storable_mb + " Mb");
             }
-            float fileLength = (float) Math.round((float) mvm.fileData.content.length / 1000 / 10) / 100;
-            fileText.setText(mvm.fileData.name + "\n\nGröße: " + fileLength + " Mb \n Maximal Speicherbare Größe: " + storable_mb + " Mb");
+            else
+                fileText.setText("Bitte wähle zunächst ein Bild zum Speichern aus!\n Dateiname: " + mvm.fileData.name);
             btnSelectFile.change_text("Neue Datei auswählen");
             btnWrite.change_visibility(true);
         }
@@ -162,7 +166,7 @@ public class AddFragment extends Fragment {
         return view;
     }
 
-    public void click_btnWrite() throws NoSuchAlgorithmException {
+    public void click_btnWrite(){
         // Exception handling needed
         if(!mvm.dataChoosen){
             String textData = saveableText.readText();
@@ -171,48 +175,47 @@ public class AddFragment extends Fragment {
         else
             assert mvm.fileData != null;
 
-        byte[] byteData = mvm.fileData.convert_to_bytes();
+        byte[] byteData = mvm.fileData.content;
 
         CompressionType compressionType = CompressionType.fromUI(encryptionCheckBox, compressionDropDown);
-        Log.v(TAG, "compressionType returns as: " + compressionType.text);
         char[] password = passwordText.readText().toCharArray();
 
-        // TODO add Information, that data will not be saved in all pictures?
+        if(compressionType.uses_encryption() && password.length == 0)
+            throw new PictureSafeMissingPasswordException();
 
-        Log.v(TAG, "File Data Length: " + byteData.length);
-        Log.v(TAG, "First Picture Length: " + mvm.pictures[0].storeable_data_in_byte);
 
         // setting data in pictures
         if(byteData.length <= mvm.pictures[0].storeable_data_in_byte){
             // Daten passen in einem Bild
-            mvm.pictures[0].setData(byteData, 1, mvm.fileData.dataType, compressionType, password, mvm.fileData.name);
             try {
-                Uri uri = mvm.pictures[0].generate_png(requireContext());
-            } catch (IOException e) {
+                mvm.pictures[0].setData(byteData, 1, mvm.fileData.dataType, compressionType, password, mvm.fileData.name);
+                mvm.pictures[0].generate_png(requireContext());
+            } catch (IOException e){
                 throw new RuntimeException(e);
             }
 
-            if(mvm.pictures.length != 1){
-                // TODO ADD INFO TEXT
-            }
+            if(mvm.pictures.length != 1)
+                throw new PictureSafeNotAllPicturesUsed();
         }
         else{
             // check length of FileData not longer then space in files
             int spaceInPictures = 0;
             int[] spacesPerPicture = new int[mvm.pictures.length];
+
             for(Picture pic : mvm.pictures) {
                 spaceInPictures += pic.storeable_data_in_byte;
                 spacesPerPicture[pic.currentPicture - 1] = spaceInPictures;
             }
-            Log.v(TAG, "Space in Pictures: " + spaceInPictures);
-            Log.v(TAG, "Space per Picture: " + Arrays.toString(spacesPerPicture));
+
+            if(spaceInPictures < mvm.fileData.content.length)
+                throw new PictureSafeDataWontFitInImageException(mvm.fileData.content.length, spaceInPictures);
+
 
             int neededPictures = 1;
 
             while(spacesPerPicture[neededPictures - 1] < byteData.length)
                 neededPictures++;
 
-            Log.v(TAG, "Needed Pictures: " + neededPictures);
 
             int offset = 0;
 
@@ -223,20 +226,18 @@ public class AddFragment extends Fragment {
                 byte[] saveableByteData = new byte[length];
 
                 System.arraycopy(byteData, offset, saveableByteData, 0, length);
-                mvm.pictures[i].setData(saveableByteData, neededPictures, mvm.fileData.dataType, compressionType, password, mvm.fileData.name);
-
                 try {
-                    Uri uri = mvm.pictures[i].generate_png(requireContext());
-                } catch (IOException e) {
+                    mvm.pictures[i].setData(saveableByteData, neededPictures, mvm.fileData.dataType, compressionType, password, mvm.fileData.name);
+                    mvm.pictures[i].generate_png(requireContext());
+                } catch (IOException e){
                     throw new RuntimeException(e);
                 }
 
                 offset += length;
             }
 
-            if(mvm.pictures.length != neededPictures){
-                // TODO ADD INFO TEXT
-            }
+            if(mvm.pictures.length > neededPictures)
+                throw new PictureSafeNotAllPicturesUsed();
         }
 
         passwordText.clear_text();
@@ -250,12 +251,21 @@ public class AddFragment extends Fragment {
 
         try {
             mvm.fileData = new FileData(requireContext(), data);
-            fileText.setText(mvm.fileData.name);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        if(mvm.pictures == null)
+            fileText.setText("Bitte wähle zunächst ein Bild zum Speichern aus!\n Dateiname: " + mvm.fileData.name);
+        else{
+            float storable_mb = 0;
+            for (Picture pic : mvm.pictures) {
+                storable_mb += ((float) Math.round((float) pic.storeable_data_in_byte / 1000 / 10)) / 100;
+            }
+
+            float fileLength = (float) Math.round((float) mvm.fileData.content.length / 1000 / 10) / 100;
+            fileText.setText(mvm.fileData.name + "\n\nGröße: " + fileLength + " Mb \n Maximal Speicherbare Größe: " + storable_mb + " Mb");
             btnWrite.change_visibility(true);
-            Log.v(TAG, "FILE WAS READED.");
-        } catch (Exception e) {
-            e.printStackTrace();
-            Log.v(TAG, "FILE READING THREW AN ERROR.");
         }
     }
 }

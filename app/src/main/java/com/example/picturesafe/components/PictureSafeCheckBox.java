@@ -14,9 +14,6 @@ public class PictureSafeCheckBox {
 
         change_visibility(visible);
     }
-    public PictureSafeCheckBox(TextView text, CheckBox checkBox) {
-        this(text, checkBox, false);
-    }
 
     public void change_visibility(boolean visible) {
         this.checkBox.setVisibility(visible ? View.VISIBLE : View.GONE);
@@ -25,9 +22,5 @@ public class PictureSafeCheckBox {
 
     public boolean isChecked() {
         return checkBox.isChecked();
-    }
-
-    public void setChecked(boolean checked) {
-        checkBox.setChecked(checked);
     }
 }

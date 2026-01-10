@@ -5,18 +5,25 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.provider.MediaStore;
-import android.util.Log;
 
 import com.example.picturesafe.enumerators.CompressionType;
 import com.example.picturesafe.enumerators.DataTypes;
+import com.example.picturesafe.exceptions.PictureSafeCouldntSavePictureName;
+import com.example.picturesafe.exceptions.PictureSafeDataCorruptedException;
+import com.example.picturesafe.exceptions.PictureSafeFileNotFoundException;
+import com.example.picturesafe.exceptions.PictureSafeIOException;
+import com.example.picturesafe.exceptions.PictureSafeMetaDataException;
+import com.example.picturesafe.exceptions.PictureSafePictureTooSmallException;
+import com.example.picturesafe.exceptions.PictureSafeSecurityNotSupported;
+import com.example.picturesafe.exceptions.PictureSafeWrongPasswordException;
 
 import java.io.*;
+import java.security.GeneralSecurityException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.util.Arrays;
+import java.util.Objects;
 
 public class Picture {
-    private static final String TAG = "Picture";
     private static final String PICTURESAFESIGNATURE = "PSafe";
 
     public Bitmap bitmap;
@@ -54,13 +61,17 @@ public class Picture {
         this.storeable_data_in_byte = ((width * (height-1) * 3 * k) - (32 + 16) * (height - 1)) / 8;
         this.pixels = this.read_pixel_array();
 
+        if(signature.length() != 4)
+            // sollte niemals auftreten (nur zur 100%igen Sicherheit)
+            throw new IllegalArgumentException("Signature must be 4 characters long");
+
         this.hasData = this.check_for_data(signature);
-        // TODO set in reading
         this.dataIsCorrupted = false;
     }
 
     // Overload for standard values (optional parameters)
     public Picture(Bitmap data, int currentPicture, String signature){
+        // K wird tatsächlich nie genutzt, auch wenn es anfangs als Feature angedacht war.
         this(data, currentPicture, signature, 1);
     }
 
@@ -79,23 +90,12 @@ public class Picture {
             this.savedDataLength = (int) metadata[9];
             this.name = metadata[11].toString();
 
-            Log.v(TAG, "Signature: " + this.signature);
-            Log.v(TAG, "CompressionType: " + this.compressionType.text);
             return true;
         }
         this.signature = signature;
 
-        Log.v(TAG, "amountOfPictures: " + this.amountOfPictures);
-        Log.v(TAG, "currentPicture: " + this.currentPicture);
-
         return false;
     }
-
-    public String generate_info_text(){
-        return  "Auflösung: " + this.width + " x " + this.height +
-                "\nSpeicherbare Datenmenge: " + this.storeable_data_in_byte + " KiloBytes";
-    }
-
 
 
     /* ====== Schreiben ====== */
@@ -108,12 +108,6 @@ public class Picture {
         this.lastRowDataBits = dataBits - (rowsOfData - 1) * this.width * 3 * this.k;
         this.amountOfPictures = amountOfPictures;
 
-        Log.v(TAG, "DataBits with Signature: " + dataBits);
-        Log.v(TAG, "rowsOfData: " + rowsOfData);
-        Log.v(TAG, "lastRowDataBits: " + lastRowDataBits);
-        Log.v(TAG, "width: " + this.width);
-        Log.v(TAG, "height: " + this.height);
-
         int nameBytes = name != null ? name.getBytes().length : 0;
         int dataLength = this.savedDataLength;
 
@@ -122,17 +116,21 @@ public class Picture {
         byte[] pSafeSignatureBytes = PICTURESAFESIGNATURE.getBytes();
         byte[] compressionTypeBytes = this.compressionType.text.getBytes();
 
-        assert 0 < this.lastRowDataBits;
-        assert this.lastRowDataBits <= this.width * 3;
-        assert this.rowsOfData <= 65535;
-        assert this.lastRowDataBits <= 65535;
-        assert this.storedDataType.text.length() == 4;
-        assert this.k <= 127;
-        assert this.signature != null;
-        assert this.signature.length() == 4;
-        assert nameBytes <= 255;
-        assert amountOfPictures <= 255;
-        assert currentPicture <= 255;
+        if(this.rowsOfData > 65535 || this.lastRowDataBits > 65535)
+            throw new PictureSafeMetaDataException("Das ausgewählte Bild ist zu groß, sodass es nicht verarbeitet werden kann.\nMaximale Größe: 21844x65534 Pixel\nAusgewählte Größe: " + this.width + "x" + this.height + " Pixel", false);
+
+        if(this.width < 72 || this.height < 2)
+            throw new PictureSafePictureTooSmallException(this.width, this.height);
+
+        if(this.width < Math.ceilDiv(216 + nameBytes,3))
+            throw new PictureSafeCouldntSavePictureName();
+
+        if(amountOfPictures > 256 || currentPicture > 256)
+            throw new PictureSafeMetaDataException("Es können nicht mehr als 256 Bilder ausgewählt werden.", false);
+
+        if(nameBytes > 256) {
+            throw new PictureSafeMetaDataException("Name ist zu lang, sodass er nicht gespeichert werden kann.", true);
+        }
 
         // set metadata in first 22 Bytes
         metadata[0] = pSafeSignatureBytes[0];
@@ -166,26 +164,12 @@ public class Picture {
         return metadata;
     }
 
-    // update Pixel Data with byteData (do the LSB Stuff)
-    // overload return rest of byteData (Data not stored within the picture)
-    // TODO need another function that sets the amount of pictures used to store data -> not possible when not every picture has been set yet
-    public void setData(byte[] byteData, int amountOfPictures, DataTypes dataType, CompressionType compressionType, char[] password, String name) throws NoSuchAlgorithmException {
-        // TODO add functions and remove hard coding
+    public void setData(byte[] byteData, int amountOfPictures, DataTypes dataType, CompressionType compressionType, char[] password, String name) throws IOException{
         this.storedDataType = dataType;
         this.savedDataLength = byteData.length;
-        Log.v(TAG, "Compression Type: " + compressionType.text);
-        Log.v(TAG, "password: " + Arrays.toString(password));
 
         // Compression
         byte[] compressedData = compressionType.compress_data(byteData);
-
-        if(compressedData == null){
-            Log.v(TAG, "Compression is null");
-        }
-        else{
-            Log.v(TAG, "CompressedData Length: " + compressedData.length);
-        }
-        Log.v(TAG, "Data Length: " + byteData.length);
 
         if(compressedData != null && compressedData.length < byteData.length) {
             byteData = compressedData;
@@ -194,17 +178,18 @@ public class Picture {
         else {
             // Kompressions Array ist größer als nicht komprimiertes Array
             this.compressionType = compressionType.remove_compression();
-            Log.v(TAG, "Compression Type: " + this.compressionType.text);
-            Log.v(TAG, "COMPRESSION REMOVED");
         }
-
 
         // Encryption
         if(this.compressionType.uses_encryption()){
             try {
                 byteData = AESEncryption.encrypt(byteData, password);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+            } catch (NoSuchAlgorithmException e) {
+                throw new PictureSafeSecurityNotSupported();
+            } catch (GeneralSecurityException e){
+                throw new PictureSafeWrongPasswordException();
+            } catch (IOException e){
+                throw new PictureSafeIOException(e);
             }
         }
 
@@ -212,7 +197,14 @@ public class Picture {
         int[] binData = PictureUtils.bytesToBinary(byteData);
         int[] binSignature = PictureUtils.bytesToBinary(this.signature.getBytes());
 
-        SecureRandom random = SecureRandom.getInstanceStrong();
+        SecureRandom random;
+        try {
+            random = SecureRandom.getInstanceStrong();
+        } catch (NoSuchAlgorithmException e){
+            throw new PictureSafeSecurityNotSupported();
+        }
+        Objects.requireNonNull(random);
+
         int randMax = this.width - (16 + 32 + 1);
         int dataBitIndex = 0;
         int signatureCount = 0;
@@ -260,7 +252,7 @@ public class Picture {
                     else b = bit;
                 }
 
-                pixels[row][col] = PictureUtils.setLSB(pixel, r, g, b);
+                this.pixels[row][col] = PictureUtils.setLSB(pixel, r, g, b);
             }
         }
 
@@ -270,14 +262,8 @@ public class Picture {
         // TODO check length of name
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try {
-            out.write(metadata);
-            out.write(nameBytes);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        Log.v(TAG, "Name written: " + name);
-        Log.v(TAG, "Name Bytes: " + Arrays.toString(name.getBytes()));
+        out.write(metadata);
+        out.write(nameBytes);
 
         int[] metaBin = PictureUtils.bytesToBinary(out.toByteArray());
         int bitIndex = 0;
@@ -315,7 +301,7 @@ public class Picture {
         return bmp;
     }
 
-    public Uri generate_png(Context context) throws IOException {
+    public void generate_png(Context context) throws IOException {
         // maybe use FileData for Export? -> might not be faster so use this instead
 
         ContentValues values = new ContentValues();
@@ -323,19 +309,20 @@ public class Picture {
         values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
         values.put(MediaStore.Images.Media.RELATIVE_PATH, "DCIM/PictureSafe");
 
-        Uri uri = context.getContentResolver()
-                .insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+        Uri uri = context.getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+        Objects.requireNonNull(uri);
 
-        assert uri != null;
-        OutputStream out = context.getContentResolver().openOutputStream(uri);
+        OutputStream out;
+        try {
+            out = context.getContentResolver().openOutputStream(uri);
+        } catch (FileNotFoundException e) {
+            throw new PictureSafeFileNotFoundException();
+        }
+        Objects.requireNonNull(out);
 
-        assert out != null;
         this.bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
         out.close();
-
-        return uri;
     }
-
 
 
     /* ====== Lesen ====== */
@@ -357,19 +344,12 @@ public class Picture {
     }
 
     public FileData read_content(int lenInBits, boolean readMetadata, int offsetBits, char[] password) {
-        Log.v(TAG, "reading Content...");
-        if(!readMetadata)
-            Log.v(TAG, "password: " + Arrays.toString(password));
+        byte[] binData = new byte[lenInBits];
         int bitOffset = offsetBits % 3;
         int startPixel = offsetBits / 3;
-
-        byte[] binData = new byte[lenInBits];
-
         int extraRow = readMetadata ? 0 : 1;
-
         int pixelsX = startPixel / width + extraRow;
         int pixelsY = startPixel % width;
-
         int bi = 0;
 
         while (bi < lenInBits) {
@@ -396,9 +376,11 @@ public class Picture {
 
         // check signature
         if(!readMetadata){
-            binData = PictureUtils.remove_check_signature(binData, this.width, PictureUtils.bytesToBinary(this.signature.getBytes()));
-            if(binData == null){
-                return null;
+            try {
+                binData = PictureUtils.remove_check_signature(binData, this.width, PictureUtils.bytesToBinary(this.signature.getBytes()));
+            } catch (PictureSafeDataCorruptedException e) {
+                this.dataIsCorrupted = true;
+                throw new PictureSafeDataCorruptedException();
             }
         }
         byte[] data = PictureUtils.binaryToBytes(binData);
@@ -410,8 +392,10 @@ public class Picture {
         if (this.compressionType.uses_encryption()) {
             try {
                 data = AESEncryption.decrypt(data, password);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+            } catch (NoSuchAlgorithmException e) {
+                throw new PictureSafeSecurityNotSupported();
+            } catch (GeneralSecurityException e) {
+                throw new PictureSafeWrongPasswordException();
             }
         }
 
@@ -421,21 +405,16 @@ public class Picture {
     public FileData read_content(char[] password){
         return this.read_content((this.rowsOfData - 1) * this.width * 3 + this.lastRowDataBits, false, 0, password);
     }
-    public FileData read_content(){
-        return this.read_content((this.rowsOfData - 1) * this.width * 3 + this.lastRowDataBits, false, 0, null);
-    }
     public FileData read_content(int lenInBits, boolean readMetadata){
         return this.read_content(lenInBits, readMetadata, 0, null);
     }
 
-
     private Object[] read_metadata(){
         byte[] data = this.read_content(27 * 8, true).content;
         int nameBytes = data[26] & 0xFF;
-        String name = new String(this.read_content(nameBytes * 8, true, 27*8, null).content);
-        Log.v(TAG, "name Length: " + nameBytes);
-        Log.v(TAG, "saved FileName: " + name);
-        Log.v(TAG, "data: " + Arrays.toString(data));
+        String name = null;
+        if (nameBytes != 0)
+            name = new String(this.read_content(nameBytes * 8, true, 27*8, null).content);
         return PictureUtils.convertMetaDataBytes(data, name);
     }
 }

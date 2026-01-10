@@ -14,7 +14,6 @@ import com.example.picturesafe.exceptions.PictureSafeBaseException;
 import java.util.Objects;
 
 public class PictureSafeDialog extends DialogFragment {
-
     public static void show(FragmentManager fm, PictureSafeBaseException e) {
         Bundle b = new Bundle();
         b.putString("title", e.message);

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel;
 import com.example.picturesafe.classes.FileData;
 import com.example.picturesafe.classes.Picture;
 import com.example.picturesafe.enumerators.DataTypes;
+import com.example.picturesafe.exceptions.PictureSafeBaseException;
 
 
 public class MainViewModel extends ViewModel {
@@ -17,5 +18,8 @@ public class MainViewModel extends ViewModel {
     public DataTypes storedDataType;
     public FileData fileData;
     public boolean dataChoosen;
+
+
+    public PictureSafeBaseException waitingException;
 
 }

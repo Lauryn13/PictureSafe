@@ -5,3 +5,4 @@ public class PictureSafeMissingPasswordException extends PictureSafeBaseExceptio
         super("Fehlendes Passwort.", "Um das Bild verschlüsseln zu können ist ein Passwort notwendig.", true);
     }
 }
+

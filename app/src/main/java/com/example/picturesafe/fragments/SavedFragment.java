@@ -23,6 +23,7 @@ import com.example.picturesafe.components.PictureSafeDialog;
 import com.example.picturesafe.components.PictureSafeEditText;
 import com.example.picturesafe.components.PictureSafeImage;
 import com.example.picturesafe.components.PictureSafeText;
+import com.example.picturesafe.enumerators.DataTypes;
 import com.example.picturesafe.exceptions.PictureSafeBaseException;
 import com.example.picturesafe.exceptions.PictureSafeDataMissingException;
 
@@ -129,7 +130,8 @@ public class SavedFragment extends Fragment {
                     break;
             }
 
-            this.btnExport.change_visibility(true);
+            if(mvm.storedDataType != DataTypes.TEXTDATA)
+                this.btnExport.change_visibility(true);
         }
     }
 

@@ -31,7 +31,7 @@ import com.example.picturesafe.enumerators.DataTypes;
 import com.example.picturesafe.exceptions.PictureSafeBaseException;
 import com.example.picturesafe.exceptions.PictureSafeDataWontFitInImageException;
 import com.example.picturesafe.exceptions.PictureSafeMissingPasswordException;
-import com.example.picturesafe.exceptions.PictureSafeNotAllPicturesUsed;
+import com.example.picturesafe.exceptions.PictureSafeNotAllPicturesUsedInfo;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -95,8 +95,12 @@ public class AddFragment extends Fragment {
         btnWrite.button.setOnClickListener(v -> {
             try {
                 click_btnWrite();
+                if(mvm.waitingException != null)
+                    throw mvm.waitingException;
             } catch (PictureSafeBaseException e){
                 PictureSafeDialog.show(getParentFragmentManager(), e);
+            } finally {
+                mvm.waitingException = null;
             }
         });
 
@@ -188,14 +192,16 @@ public class AddFragment extends Fragment {
         if(byteData.length <= mvm.pictures[0].storeable_data_in_byte){
             // Daten passen in einem Bild
             try {
-                mvm.pictures[0].setData(byteData, 1, mvm.fileData.dataType, compressionType, password, mvm.fileData.name);
+                mvm.pictures[0].setData(mvm, byteData, 1, mvm.fileData.dataType, compressionType, password, mvm.fileData.name);
                 mvm.pictures[0].generate_png(requireContext());
             } catch (IOException e){
+                passwordText.clear_text();
+                Arrays.fill(password, '\0');
                 throw new RuntimeException(e);
             }
 
             if(mvm.pictures.length != 1)
-                throw new PictureSafeNotAllPicturesUsed();
+                throw new PictureSafeNotAllPicturesUsedInfo();
         }
         else{
             // check length of FileData not longer then space in files
@@ -227,9 +233,11 @@ public class AddFragment extends Fragment {
 
                 System.arraycopy(byteData, offset, saveableByteData, 0, length);
                 try {
-                    mvm.pictures[i].setData(saveableByteData, neededPictures, mvm.fileData.dataType, compressionType, password, mvm.fileData.name);
+                    mvm.pictures[i].setData(mvm, saveableByteData, neededPictures, mvm.fileData.dataType, compressionType, password, mvm.fileData.name);
                     mvm.pictures[i].generate_png(requireContext());
                 } catch (IOException e){
+                    passwordText.clear_text();
+                    Arrays.fill(password, '\0');
                     throw new RuntimeException(e);
                 }
 
@@ -237,7 +245,7 @@ public class AddFragment extends Fragment {
             }
 
             if(mvm.pictures.length > neededPictures)
-                throw new PictureSafeNotAllPicturesUsed();
+                throw new PictureSafeNotAllPicturesUsedInfo();
         }
 
         passwordText.clear_text();

@@ -78,13 +78,12 @@ public class ImageFragment extends Fragment {
 
                 try{
                     this.loadImages(uriArray);
+                    this.showImages();
                 } catch (PictureSafeBaseException e){
                     PictureSafeDialog.show(getParentFragmentManager(),e);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-
-                this.showImages();
             }
         });
     }

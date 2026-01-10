@@ -6,10 +6,11 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.provider.MediaStore;
 
+import com.example.picturesafe.MainViewModel;
 import com.example.picturesafe.enumerators.CompressionType;
 import com.example.picturesafe.enumerators.DataTypes;
-import com.example.picturesafe.exceptions.PictureSafeCouldntSavePictureName;
-import com.example.picturesafe.exceptions.PictureSafeDataCorruptedException;
+import com.example.picturesafe.exceptions.PictureSafeCouldntSavePictureNameInfo;
+import com.example.picturesafe.exceptions.PictureSafeDataCorruptedInfo;
 import com.example.picturesafe.exceptions.PictureSafeFileNotFoundException;
 import com.example.picturesafe.exceptions.PictureSafeIOException;
 import com.example.picturesafe.exceptions.PictureSafeMetaDataException;
@@ -65,6 +66,9 @@ public class Picture {
             // sollte niemals auftreten (nur zur 100%igen Sicherheit)
             throw new IllegalArgumentException("Signature must be 4 characters long");
 
+        if(this.width < 72 || this.height < 2)
+            throw new PictureSafePictureTooSmallException(this.width, this.height);
+
         this.hasData = this.check_for_data(signature);
         this.dataIsCorrupted = false;
     }
@@ -119,11 +123,10 @@ public class Picture {
         if(this.rowsOfData > 65535 || this.lastRowDataBits > 65535)
             throw new PictureSafeMetaDataException("Das ausgewählte Bild ist zu groß, sodass es nicht verarbeitet werden kann.\nMaximale Größe: 21844x65534 Pixel\nAusgewählte Größe: " + this.width + "x" + this.height + " Pixel", false);
 
-        if(this.width < 72 || this.height < 2)
-            throw new PictureSafePictureTooSmallException(this.width, this.height);
-
-        if(this.width < Math.ceilDiv(216 + nameBytes,3))
-            throw new PictureSafeCouldntSavePictureName();
+        if(this.width < Math.ceilDiv(216 + nameBytes * 8, 3)){
+            this.name = null;
+            nameBytes = 0;
+        }
 
         if(amountOfPictures > 256 || currentPicture > 256)
             throw new PictureSafeMetaDataException("Es können nicht mehr als 256 Bilder ausgewählt werden.", false);
@@ -164,7 +167,7 @@ public class Picture {
         return metadata;
     }
 
-    public void setData(byte[] byteData, int amountOfPictures, DataTypes dataType, CompressionType compressionType, char[] password, String name) throws IOException{
+    public void setData(MainViewModel mvm, byte[] byteData, int amountOfPictures, DataTypes dataType, CompressionType compressionType, char[] password, String name) throws IOException{
         this.storedDataType = dataType;
         this.savedDataLength = byteData.length;
 
@@ -258,12 +261,16 @@ public class Picture {
 
         // Metadaten generieren
         byte[] metadata = this.generate_metadata(amountOfPictures, binData.length + signatureCount, name);
-        byte[] nameBytes = name.getBytes();
-        // TODO check length of name
+        byte[] nameBytes = (this.name != null) ? this.name.getBytes() : null;
+
+        if(nameBytes == null) {
+            mvm.waitingException = new PictureSafeCouldntSavePictureNameInfo();
+        }
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         out.write(metadata);
-        out.write(nameBytes);
+        if(nameBytes != null)
+            out.write(nameBytes);
 
         int[] metaBin = PictureUtils.bytesToBinary(out.toByteArray());
         int bitIndex = 0;
@@ -378,9 +385,9 @@ public class Picture {
         if(!readMetadata){
             try {
                 binData = PictureUtils.remove_check_signature(binData, this.width, PictureUtils.bytesToBinary(this.signature.getBytes()));
-            } catch (PictureSafeDataCorruptedException e) {
+            } catch (PictureSafeDataCorruptedInfo e) {
                 this.dataIsCorrupted = true;
-                throw new PictureSafeDataCorruptedException();
+                throw new PictureSafeDataCorruptedInfo();
             }
         }
         byte[] data = PictureUtils.binaryToBytes(binData);
@@ -413,7 +420,7 @@ public class Picture {
         byte[] data = this.read_content(27 * 8, true).content;
         int nameBytes = data[26] & 0xFF;
         String name = null;
-        if (nameBytes != 0)
+        if (nameBytes != 0 && new String(data, 0, 5).equals(PICTURESAFESIGNATURE))
             name = new String(this.read_content(nameBytes * 8, true, 27*8, null).content);
         return PictureUtils.convertMetaDataBytes(data, name);
     }

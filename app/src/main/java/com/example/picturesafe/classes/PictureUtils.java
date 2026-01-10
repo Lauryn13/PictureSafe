@@ -1,7 +1,7 @@
 package com.example.picturesafe.classes;
 
 import com.example.picturesafe.enumerators.DataTypes;
-import com.example.picturesafe.exceptions.PictureSafeDataCorruptedException;
+import com.example.picturesafe.exceptions.PictureSafeDataCorruptedInfo;
 
 import java.security.SecureRandom;
 
@@ -138,7 +138,7 @@ public final class PictureUtils {
             // Signatur prüfen
             for (int i = 0; i < 32; i++) {
                 if ((bits[r++] & 1) != signatureBits[i]){
-                    throw new PictureSafeDataCorruptedException();
+                    throw new PictureSafeDataCorruptedInfo();
                 }
             }
             lineBitsLeft -= 32;

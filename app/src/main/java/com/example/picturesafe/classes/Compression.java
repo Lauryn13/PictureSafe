@@ -1,6 +1,6 @@
 package com.example.picturesafe.classes;
 
-import com.example.picturesafe.exceptions.PictureSafeDataCorruptedException;
+import com.example.picturesafe.exceptions.PictureSafeDataCorruptedInfo;
 
 import net.jpountz.lz4.LZ4Compressor;
 import net.jpountz.lz4.LZ4Factory;
@@ -60,7 +60,7 @@ public class Compression {
                 baos.write(buffer, 0, count);
             }
         } catch(DataFormatException e){
-            throw new PictureSafeDataCorruptedException();
+            throw new PictureSafeDataCorruptedInfo();
         }finally {
             inflater.end();
         }

@@ -1,9 +1,12 @@
 package com.example.picturesafe.enumerators;
 
-import android.util.Log;
-
+/** DataTypes
+ *  Datentypen, die in einem Bild gespeichert werden.
+ *  Dient hauptsächlich zur Umwandlung wieder zurück zur Datei
+ *
+ *  Müssen immer 4 Zeichen sein -> zur richtigen Speicherung in den Metadaten
+ */
 public enum DataTypes {
-    // müssen immer 4 Zeichen lang sein!
     NODATA("NODA"),
     TEXTDATA("0STR"),
     TXTDATA("0TXT"),
@@ -16,7 +19,6 @@ public enum DataTypes {
 //    ZIP("ZIP"),
 //    PPTX("PPTX"),
 //    CSV("CSV"),
-
     PDF("0PDF");
 
     public final String text;
@@ -25,18 +27,30 @@ public enum DataTypes {
         this.text = text;
     }
 
+    /** fromText
+     *  Konvertiert einen String aus den Metadaten in einen DataTypes-Wert
+     *
+     * @param text
+     * @return
+     */
     public static DataTypes fromText(String text) {
         // returns DataType from saved String in Picture
-        for (DataTypes dt : values()) {
-            if (dt.text.equals(text)) return dt;
-        }
+        for (DataTypes dt : values())
+            if (dt.text.equals(text))
+                return dt;
+
         return NODATA;
     }
 
+    /** fromFile
+     *  Konvertiert einen String aus dem Dateinamen in einen DataTypes-Wert
+     *
+     * @param fileName Dateiname der zu speichernden Datei
+     * @return DataTypes-Wert
+     */
     public static DataTypes fromFile(String fileName){
         // returns DataType from imported File
         String lower = fileName.toLowerCase();
-        Log.v("DataTypes", "SELECTING FILETYPE " + fileName);
         switch (lower.substring(lower.lastIndexOf("."))) {
             case ".txt":
                 return DataTypes.TXTDATA;
@@ -52,14 +66,22 @@ public enum DataTypes {
         }
     }
 
+    /** getExtension
+     *  Gibt die Dateiendung zurück je nach Datentyp
+     *
+     * @param dataType aktueller Datentyp
+     * @return Dateiendung als String
+     */
     public static String getExtension(DataTypes dataType){
-        if(dataType == DataTypes.NODATA){
+        if(dataType == DataTypes.NODATA)
             return ".bin";
-        }
-        if(dataType.text.startsWith("0")){
+        if(dataType.text.startsWith("00"))
+            // sollte Dateiendung nur 2 Buchstaben haben
+            return "." + dataType.text.substring(2).toLowerCase();
+        if(dataType.text.startsWith("0"))
+            // 0 aus dem Value entfernen und dann Dateiendung generieren (falls Dateiendung 3 Buchstaben hat)
             return "." + dataType.text.substring(1).toLowerCase();
-        } else {
+        else
             return "." + dataType.text.toLowerCase();
-        }
     }
 }

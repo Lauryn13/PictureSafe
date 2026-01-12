@@ -22,7 +22,6 @@
                 android:gravity="center"
                 android:layout_marginBottom="16dp" />
 
-            <!-- Bild auswählen -->
             <LinearLayout
                 android:layout_width="350dp"
                 android:layout_gravity="center"
@@ -30,7 +29,6 @@
                 android:orientation="horizontal"
                 android:layout_marginBottom="8dp">
 
-                <!-- Reset Button -->
                 <ImageButton
                     android:id="@+id/btnReset"
                     android:layout_width="60dp"
@@ -42,7 +40,6 @@
                     android:src="@drawable/ic_refresh"
                     android:visibility="visible" />
 
-                <!-- Bild auswählen -->
                 <Button
                     android:id="@+id/btnSelect"
                     android:layout_width="0dp"
@@ -53,25 +50,6 @@
                     android:textColor="@color/primaryText"
                     app:cornerRadius="50px"/>
             </LinearLayout>
-
-
-<!--            <androidx.cardview.widget.CardView-->
-<!--                android:id="@+id/imageCard"-->
-<!--                android:layout_width="match_parent"-->
-<!--                android:layout_height="wrap_content"-->
-<!--                android:layout_margin="12dp"-->
-<!--                app:cardBackgroundColor="@color/elementBackground"-->
-<!--                app:cardCornerRadius="16dp"-->
-<!--                app:cardElevation="6dp">-->
-
-<!--                <ImageView-->
-<!--                    android:id="@+id/imageView"-->
-<!--                    android:layout_width="match_parent"-->
-<!--                    android:layout_height="430dp"-->
-<!--                    android:background="@color/elementBackground"-->
-<!--                    android:maxHeight="200dp"-->
-<!--                    android:scaleType="fitCenter" />-->
-<!--            </androidx.cardview.widget.CardView>-->
 
             <androidx.cardview.widget.CardView
                 android:id="@+id/imageCard"
@@ -87,7 +65,6 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
 
-                    <!-- Thumbnail-Leiste -->
                     <HorizontalScrollView
                         android:layout_width="match_parent"
                         android:layout_height="80dp"
@@ -102,7 +79,6 @@
                             android:padding="8dp"/>
                     </HorizontalScrollView>
 
-                    <!-- Großes Bild -->
                     <ImageView
                         android:id="@+id/mainImage"
                         android:layout_width="match_parent"
@@ -114,7 +90,6 @@
 
             </androidx.cardview.widget.CardView>
 
-    <!--        Metadaten zum Bild      -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/infoCard"
                 android:layout_width="350dp"

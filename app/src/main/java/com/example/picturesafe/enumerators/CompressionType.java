@@ -1,7 +1,5 @@
 package com.example.picturesafe.enumerators;
 
-import android.util.Log;
-
 import com.example.picturesafe.classes.Compression;
 import com.example.picturesafe.components.PictureSafeCheckBox;
 import com.example.picturesafe.components.PictureSafeDropDown;
@@ -9,10 +7,15 @@ import com.example.picturesafe.components.PictureSafeDropDown;
 import java.io.IOException;
 import java.util.zip.Deflater;
 
+/** CompressionType
+ *  Enum um Optionen für Kompression und Verschlüsselung zu speichern
+ *  IMMER 2 Buchstaben lang -> für Speicherung in den Metadaten:
+ *    - 1. Buchstabe = Komprimierungsalgorithmus
+ *    - 2. Buchstabe = AES-Verschlüsselung
+ *
+ *  Reihenfolge der Umwandlungen: Daten <-> Komprimierung <-> Verschlüsselung
+ */
 public enum CompressionType {
-    // müssen immer 2 Zeichen lang sein!
-    // Reihenfolge: Byteumwandlung -> Komprimierung -> Verschlüsselung
-
     // Keine Komprimierung
     NO("NN"),
     NOAES("NA"),
@@ -35,14 +38,26 @@ public enum CompressionType {
         this.text = text;
     }
 
+    /** fromText
+     *  Konvertiert den String aus den Metadaten in einen CompressionType-Wert
+     *
+     * @param text String der umgewandelt werden soll
+     * @return CompressionType-Wert
+     */
     public static CompressionType fromText(String text) {
-        for (CompressionType dt : values()) {
-            if (dt.text.equals(text)) return dt;
-        }
+        for (CompressionType dt : values())
+            if (dt.text.equals(text))
+                return dt;
+
         return NO;
     }
 
-    public boolean uses_encryption() {
+    /** usesEncryption
+     *  Gibt an ob die Daten mit AES verschlüsselt werden soll
+     *
+     * @return Werden Daten verschlüsselt?
+     */
+    public boolean usesEncryption() {
         switch (this) {
             case NOAES:
             case LZ4AES:
@@ -54,11 +69,18 @@ public enum CompressionType {
         }
     }
 
+    /** fromUI
+     *  Konvertiert die Optionen aus dem Frontend in einen CompressionType-Wert
+     *
+     * @param checkBox Checkbox für die Verschlüsselung
+     * @param dropDown Dropdown für den Komprimierungsalgorithmus
+     * @return CompressionType-Wert
+     */
     public static CompressionType fromUI(PictureSafeCheckBox checkBox, PictureSafeDropDown dropDown){
         CompressionType compType;
         CompressionDropdown comDropDown = dropDown.getSelectedItem();
-        Log.v("COMPRESSIONTYPE", "comDropDown: " + comDropDown);
 
+        // Erstmal Verschlüsselung mit rein
         switch(comDropDown){
             case FAST:
                 compType = CompressionType.LZ4AES;
@@ -72,15 +94,19 @@ public enum CompressionType {
             default:
                 compType = CompressionType.NOAES;
         }
-        Log.v("COMPRESSIONTYPE", "compType: " + compType.text + " checkBox: " + checkBox.isChecked());
-        if(!checkBox.isChecked()){
-            return compType.remove_aes();
-        }
+        // Wenn Verschlüsselung nicht aktiv ist wieder entfernen
+        if(!checkBox.isChecked())
+            return compType.removeAes();
         else
             return compType;
     }
 
-    public CompressionType remove_compression(){
+    /** removeCompression
+     *  Entfernt die Kompression (Bspw. wenn Komprimierung länger ist als eigentliche Daten)
+     *
+     * @return CompressionType ohne Kompression
+     */
+    public CompressionType removeCompression(){
         switch (this) {
             case NO:
             case LZ4:
@@ -97,7 +123,12 @@ public enum CompressionType {
         }
     }
 
-    public CompressionType remove_aes() {
+    /** removeAES
+     *  Entfernt die Verschlüsselung
+     *
+     * @return CompressionType ohne AES
+     */
+    public CompressionType removeAes() {
         switch (this) {
             case LZ4AES:
             case LZ4:
@@ -114,9 +145,14 @@ public enum CompressionType {
         }
     }
 
-    public byte[] compress_data(byte[] data) throws IOException {
-        // Komprimiert die Daten je nach ausgewählten Algorithmus.
-        // Liefert null, wenn die daten unkomprimiert kürzer sind.
+    /** compressData
+     *  Komprimiert die Daten je nach ausgewählten Algorithmus
+     *
+     * @param data zu komprimierenden Daten
+     * @return komprimierte Daten oder Null, sollte keine Komprimierung aktiv sein
+     * @throws IOException Fehler beim Schreiben/Lesen
+     */
+    public byte[] compressData(byte[] data) throws IOException {
         byte[] compressed_data = null;
 
         switch (this) {
@@ -142,7 +178,14 @@ public enum CompressionType {
         return compressed_data;
     }
 
-    public byte[] decompress_data(byte[] data, int originalSize){
+    /** decompressData
+     *  Entkomprimiert die Daten je nach ausgewählten Algorithmus
+     *
+     * @param data zu entkomprimierenden Daten
+     * @param originalSize Größe der zu entkomprimierenden Daten
+     * @return entkomprimierte Daten
+     */
+    public byte[] decompressData(byte[] data, int originalSize){
         byte[] decompressed_data = null;
 
         switch (this) {

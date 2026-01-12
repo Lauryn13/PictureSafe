@@ -29,6 +29,7 @@ import com.example.picturesafe.components.PictureSafeText;
 import com.example.picturesafe.enumerators.CompressionType;
 import com.example.picturesafe.enumerators.DataTypes;
 import com.example.picturesafe.exceptions.PictureSafeBaseException;
+import com.example.picturesafe.exceptions.PictureSafeDataMissingException;
 import com.example.picturesafe.exceptions.PictureSafeDataWontFitInImageException;
 import com.example.picturesafe.exceptions.PictureSafeMissingPasswordException;
 import com.example.picturesafe.exceptions.PictureSafeNotAllPicturesUsedInfo;
@@ -37,10 +38,14 @@ import java.io.IOException;
 import java.util.Arrays;
 
 
+/** Fragment, welches den Tab der ADD Seite darstellt. (Um Daten in ein Bild abspeichern zu können)
+ *  Kümmert sich um das abspeichern von Daten in den ausgewählten Bildern und lädt Datein vom Handy.
+ */
 public class AddFragment extends Fragment {
-    private ActivityResultLauncher<Intent> pickFileLauncher;
-    MainViewModel mvm;
+    private ActivityResultLauncher<Intent> pickFileLauncher; // Intent-Launcher zur auswahl einer Datei
+    MainViewModel mvm; // ViewModel zum zwischenspeichern von Daten
 
+    // UI Komponenten
     PictureSafeButton btnSelectFile;
     PictureSafeButton btnWrite;
     PictureSafeText fileText;
@@ -49,194 +54,240 @@ public class AddFragment extends Fragment {
     PictureSafeCheckBox encryptionCheckBox;
     PictureSafeEditText passwordText;
 
+    /** onCreate
+     *  Setzt das onActivityResult für diesen Tab
+     *
+     * @param savedInstanceState If the fragment is being re-created from
+     * a previous saved state, this is the state.
+     */
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         this.pickFileLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
             if(result.getResultCode() == RESULT_OK && result.getData() != null){
                 try {
-                    this.load_file(result.getData().getData());
+                    // Versucht ein File zum abspeichern zu laden
+                    this.loadFile(result.getData().getData());
                 } catch (PictureSafeBaseException e){
+                    // Anzeigen der eventuell geworfenen Exception
                     PictureSafeDialog.show(getParentFragmentManager(), e);
                 }
             }
         });
     }
 
+    /** onCreateView
+     *  Erstellt die Angezeigten UI-Componenten im Frontend und setzt deren Funktionen und Werte.
+     *
+     * @param inflater The LayoutInflater object that can be used to inflate
+     * any views in the fragment,
+     * @param container If non-null, this is the parent view that the fragment's
+     * UI should be attached to.  The fragment should not add the view itself,
+     * but this can be used to generate the LayoutParams of the view.
+     * @param savedInstanceState If non-null, this fragment is being re-constructed
+     * from a previous saved state as given here.
+     *
+     * @return Return the View for the fragment's UI, or null.
+     */
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_add, container, false);
 
+        // ViewModel erstellen/laden
         this.mvm = new ViewModelProvider(requireActivity()).get(MainViewModel.class);
-        mvm.dataChoosen = true;
+        this.mvm.dataChoosen = true;
 
-        btnSelectFile = new PictureSafeButton(requireContext(), view.findViewById(R.id.btnSelectFile), true);
-        btnWrite = new PictureSafeButton(requireContext(), view.findViewById(R.id.btnWrite));
-        fileText = new PictureSafeText(view.findViewById(R.id.fileText), view.findViewById(R.id.fileCard));
-        saveableText = new PictureSafeEditText(view.findViewById(R.id.saveableText), view.findViewById(R.id.saveableCard));
-        compressionDropDown = new PictureSafeDropDown(requireContext(), view.findViewById(R.id.compressionSpinner), true);
-        encryptionCheckBox = new PictureSafeCheckBox(view.findViewById(R.id.textEncryption), view.findViewById(R.id.checkBoxEncrytion), true);
-        passwordText = new PictureSafeEditText(view.findViewById(R.id.passwordText), view.findViewById(R.id.passwordCard));
+        // UI-Komponenten initialisieren
+        this.btnSelectFile = new PictureSafeButton(requireContext(), view.findViewById(R.id.btnSelectFile), true);
+        this.btnWrite = new PictureSafeButton(requireContext(), view.findViewById(R.id.btnWrite));
+        this.fileText = new PictureSafeText(view.findViewById(R.id.fileText), view.findViewById(R.id.fileCard));
+        this.saveableText = new PictureSafeEditText(view.findViewById(R.id.saveableText), view.findViewById(R.id.saveableCard));
+        this.compressionDropDown = new PictureSafeDropDown(requireContext(), view.findViewById(R.id.compressionSpinner), true);
+        this.encryptionCheckBox = new PictureSafeCheckBox(view.findViewById(R.id.textEncryption), view.findViewById(R.id.checkBoxEncrytion), true);
+        this.passwordText = new PictureSafeEditText(view.findViewById(R.id.passwordText), view.findViewById(R.id.passwordCard));
 
         TextView tabFile = view.findViewById(R.id.tabFile);
         TextView tabText = view.findViewById(R.id.tabText);
 
-        btnSelectFile.button.setOnClickListener(v -> {
+        // OnClick für den Button zum Laden eines Files erstellen
+        // erstellt einen Intent, welcher dann in der RegisterForActivityResult verarbeitet wird
+        this.btnSelectFile.button.setOnClickListener(v -> {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
-                    "application/pdf",
-                    "image/*"
-            });
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/pdf", "image/*"});
             intent.setType("*/*");
-            pickFileLauncher.launch(Intent.createChooser(intent, "Datei auswählen"));
-            btnSelectFile.change_text("Neue Datei auswählen");
+
+            this.pickFileLauncher.launch(Intent.createChooser(intent, "Datei auswählen"));
+            this.btnSelectFile.changeText("Neue Datei auswählen");
         });
 
-        btnWrite.button.setOnClickListener(v -> {
+        // OnClick für den Button zum Schreiben der Dateien erstellen
+        this.btnWrite.button.setOnClickListener(v -> {
             try {
-                click_btnWrite();
-                if(mvm.waitingException != null)
-                    throw mvm.waitingException;
+                clickBtnWrite();
+                // Wartende Information, die im Verlauf des Schreibens aufgetreten sind
+                if(this.mvm.waitingException != null)
+                    throw this.mvm.waitingException;
             } catch (PictureSafeBaseException e){
+                // Anzeigen des Dialogs mit der Exception
                 PictureSafeDialog.show(getParentFragmentManager(), e);
             } finally {
-                mvm.waitingException = null;
+                // Zurücksetzen der Wartenden Exception, sollte irgendeine geworfen wurden sein
+                this.mvm.waitingException = null;
             }
         });
 
-        encryptionCheckBox.checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> passwordText.change_visibility(isChecked));
+        // Anzeigen des Passwort-Edits sollte die Checkbox aktiviert sein
+        this.encryptionCheckBox.checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> this.passwordText.changeVisibility(isChecked));
 
+        // Auswahl für den TAB Datei, welcher die Entsprechenden UI Komponenten darunter lädt
+        // = Man möchte eine Datei im Bild speichern
         tabFile.setOnClickListener(v -> {
-            mvm.dataChoosen = true;
-            btnSelectFile.change_visibility(true);
-            saveableText.change_visibility(false);
+            this.mvm.dataChoosen = true;
+            this.btnSelectFile.changeVisibility(true);
+            this.saveableText.changeVisibility(false);
 
-            if(mvm.fileData != null){
+            // Setzen des anzuzeigenen Textes
+            if(this.mvm.fileData != null){
                 float storable_mb = 0;
-                if(mvm.pictures != null) {
-                    for (Picture pic : mvm.pictures) {
+                if(this.mvm.pictures != null) {
+                    // Bilder und Datei wurde ausgewählt -> Infotext wird generiert
+                    for (Picture pic : this.mvm.pictures)
                         storable_mb += ((float) Math.round((float) pic.storeable_data_in_byte / 1000 / 10)) / 100;
-                    }
 
-                    float fileLength = (float) Math.round((float) mvm.fileData.content.length / 1000 / 10) / 100;
-                    fileText.setText(mvm.fileData.name + "\n\nGröße: " + fileLength + " Mb \n Maximal Speicherbare Größe: " + storable_mb + " Mb");
-                    btnWrite.change_visibility(true);
+                    float fileLength = (float) Math.round((float) this.mvm.fileData.content.length / 1000 / 10) / 100;
+                    this.fileText.setText(this.mvm.fileData.name + "\n\nGröße: " + fileLength + " Mb \n Maximal Speicherbare Größe: " + storable_mb + " Mb");
+                    this.btnWrite.changeVisibility(true);
                 }
                 else
-                    fileText.setText("Bitte wähle zunächst ein Bild zum Speichern aus!\n Dateiname: " + mvm.fileData.name);
+                    this.fileText.setText("Bitte wähle zunächst ein Bild zum Speichern aus!\n Dateiname: " + this.mvm.fileData.name);
             }
             else
-                btnWrite.change_visibility(false);
+                this.btnWrite.changeVisibility(false);
 
             tabFile.setBackgroundColor(requireContext().getColor(R.color.primaryVariant));
             tabText.setBackgroundColor(requireContext().getColor(R.color.primary));
         });
 
+        // Auswahl für den TAB Text, welcher die Entsprechenden UI Komponenten darunter lädt
+        // = Man möchte einen Text im Bild speichern
         tabText.setOnClickListener(v -> {
-            mvm.dataChoosen = false;
-            saveableText.change_visibility(true);
-            btnSelectFile.change_visibility(false);
-            btnWrite.change_visibility(true);
-            fileText.removeText();
+            this.mvm.dataChoosen = false;
+            this.saveableText.changeVisibility(true);
+            this.btnSelectFile.changeVisibility(false);
+            this.btnWrite.changeVisibility(true);
+            this.fileText.removeText();
 
             tabText.setBackgroundColor(requireContext().getColor(R.color.primaryVariant));
             tabFile.setBackgroundColor(requireContext().getColor(R.color.primary));
         });
 
-        // load picture data and set all up
-        if(mvm.pictures == null) {
-            btnWrite.button.setEnabled(false);
-            btnWrite.change_visibility(true);
+        if(this.mvm.pictures == null) {
+            // Keine Bilder als Grundlage ausgewählt -> Button zum schreiben nicht anzeigen
+            this.btnWrite.changeVisibility(true);
         }
 
-        if(mvm.fileData != null){
+        // Infotext der Datei anzeigen
+        if(this.mvm.fileData != null){
             float storable_mb = 0;
-            if(mvm.pictures != null) {
-                for (Picture pic : mvm.pictures) {
+            if(this.mvm.pictures != null) {
+                for (Picture pic : this.mvm.pictures)
                     storable_mb += ((float) Math.round((float) pic.storeable_data_in_byte / 1000 / 10)) / 100;
-                }
 
-                float fileLength = (float) Math.round((float) mvm.fileData.content.length / 1000 / 10) / 100;
-                fileText.setText(mvm.fileData.name + "\n\nGröße: " + fileLength + " Mb \n Maximal Speicherbare Größe: " + storable_mb + " Mb");
+                float fileLength = (float) Math.round((float) this.mvm.fileData.content.length / 1000 / 10) / 100;
+                this.fileText.setText(this.mvm.fileData.name + "\n\nGröße: " + fileLength + " Mb \n Maximal Speicherbare Größe: " + storable_mb + " Mb");
             }
             else
-                fileText.setText("Bitte wähle zunächst ein Bild zum Speichern aus!\n Dateiname: " + mvm.fileData.name);
-            btnSelectFile.change_text("Neue Datei auswählen");
-            btnWrite.change_visibility(true);
+                this.fileText.setText("Bitte wähle zunächst ein Bild zum Speichern aus!\n Dateiname: " + this.mvm.fileData.name);
+            this.btnSelectFile.changeText("Neue Datei auswählen");
+            this.btnWrite.changeVisibility(true);
         }
         else
-            btnWrite.change_visibility(false);
+            this.btnWrite.changeVisibility(false);
 
         return view;
     }
 
-    public void click_btnWrite(){
-        // Exception handling needed
-        if(!mvm.dataChoosen){
-            String textData = saveableText.readText();
-            mvm.fileData = new FileData(textData.getBytes(), DataTypes.TEXTDATA, "textExport");
+    /** clickBtnWrite
+     *  Funktion um eine Datei/Text in den Bildern speichern zu können.
+     *  Wird ausgeführt, wenn der Schreiben Button gedrückt wird.
+     */
+    public void clickBtnWrite(){
+        // Es soll Text gespeichert werden -> Muss eine FileData imitiert werden, welche die Daten des Textes beinhaltet
+        if(!this.mvm.dataChoosen){
+            String textData = this.saveableText.readText();
+            this.mvm.fileData = new FileData(textData.getBytes(), DataTypes.TEXTDATA, "textExport");
         }
-        else
-            assert mvm.fileData != null;
 
-        byte[] byteData = mvm.fileData.content;
+        // zu speichernden Byte-Daten
+        byte[] byteData = this.mvm.fileData.content;
 
-        CompressionType compressionType = CompressionType.fromUI(encryptionCheckBox, compressionDropDown);
-        char[] password = passwordText.readText().toCharArray();
+        // Lesen des Kompressionstypes und des Passworts aus den UI-Komponenten
+        CompressionType compressionType = CompressionType.fromUI(this.encryptionCheckBox, this.compressionDropDown);
+        char[] password = this.passwordText.readText().toCharArray();
 
-        if(compressionType.uses_encryption() && password.length == 0)
+        // Verschlüsselung ausgewählt, ohne Passwort zu definieren
+        if(compressionType.usesEncryption() && password.length == 0)
             throw new PictureSafeMissingPasswordException();
 
+        // Sicherheit: Kein Bild als Grundlage ausgewählt (sollte nicht passieren weil der Button dann deaktiviert wurde)
+        if(this.mvm.pictures == null || this.mvm.pictures.length == 0)
+            throw new PictureSafeDataMissingException("Es wurden keine Bilder als Grundlage zum speichern ausgewählt.");
 
-        // setting data in pictures
-        if(byteData.length <= mvm.pictures[0].storeable_data_in_byte){
-            // Daten passen in einem Bild
+        // Setzen der Daten in den Bilder
+        if(byteData.length <= this.mvm.pictures[0].storeable_data_in_byte){
+            // Daten passen in einem Bild rein
             try {
-                mvm.pictures[0].setData(mvm, byteData, 1, mvm.fileData.dataType, compressionType, password, mvm.fileData.name);
-                mvm.pictures[0].generate_png(requireContext());
+                // Daten im Bild schreiben und das Bild generieren (abspeichern auf dem Gerät)
+                this.mvm.pictures[0].setData(this.mvm, byteData, 1, this.mvm.fileData.dataType, compressionType, password, this.mvm.fileData.name);
+                this.mvm.pictures[0].generatePng(requireContext());
             } catch (IOException e){
-                passwordText.clear_text();
+                // Fehlerdialog wird aufgerufen (Sicherheitshalber werden alle Passworteingaben und Variablen gelöscht)
+                this.passwordText.clearText();
                 Arrays.fill(password, '\0');
                 throw new RuntimeException(e);
             }
 
-            if(mvm.pictures.length != 1)
+            // Es wurden mehr als 1 Bild ausgewählt (aber nur in einem gespeichert) -> Information an den User
+            if(this.mvm.pictures.length != 1)
                 throw new PictureSafeNotAllPicturesUsedInfo();
         }
         else{
-            // check length of FileData not longer then space in files
-            int spaceInPictures = 0;
-            int[] spacesPerPicture = new int[mvm.pictures.length];
+            // Daten passen nicht in ein Bild hinein
+            int spaceInPictures = 0; // gesamter Speicherplatz aller Bilder
+            int[] spacesPerPicture = new int[this.mvm.pictures.length]; // Speicherplatz von jedem Bild + den Bildern davor -> Berechnung wie viele Bilder gebraucht werden
 
-            for(Picture pic : mvm.pictures) {
+            // Berechnung des gesamt verfügbaren Speicherplatzes in den Bildern
+            for(Picture pic : this.mvm.pictures) {
                 spaceInPictures += pic.storeable_data_in_byte;
                 spacesPerPicture[pic.currentPicture - 1] = spaceInPictures;
             }
 
-            if(spaceInPictures < mvm.fileData.content.length)
-                throw new PictureSafeDataWontFitInImageException(mvm.fileData.content.length, spaceInPictures);
+            // Daten passen nicht in die verfügbaren Bilder hinein
+            if(spaceInPictures < this.mvm.fileData.content.length)
+                throw new PictureSafeDataWontFitInImageException(this.mvm.fileData.content.length, spaceInPictures);
 
+            int neededPictures = 1; // minimal gebrauchte Bilder
+            int offset = 0; // Länge der schon gespeicherten Datenbytes in vorherigen Bildern
 
-            int neededPictures = 1;
-
+            // Auswählen der minimal benötigten Bilder
             while(spacesPerPicture[neededPictures - 1] < byteData.length)
                 neededPictures++;
 
-
-            int offset = 0;
-
+            // Schreiben der Daten
             for(int i = 0; i < neededPictures; i++) {
-                // split Data
-                int length = Math.min(mvm.pictures[i].storeable_data_in_byte, byteData.length - offset);
-
+                // Aufspalten der Daten in einzelnen Chunks, die in die Bilder hineinpassen
+                int length = Math.min(this.mvm.pictures[i].storeable_data_in_byte, byteData.length - offset);
                 byte[] saveableByteData = new byte[length];
 
+                // Generieren des Chunks
                 System.arraycopy(byteData, offset, saveableByteData, 0, length);
                 try {
-                    mvm.pictures[i].setData(mvm, saveableByteData, neededPictures, mvm.fileData.dataType, compressionType, password, mvm.fileData.name);
-                    mvm.pictures[i].generate_png(requireContext());
+                    // Schreiben eines Chunks in dem Bild und generieren (speichern) des neuen Fotos
+                    this.mvm.pictures[i].setData(this.mvm, saveableByteData, neededPictures, this.mvm.fileData.dataType, compressionType, password, this.mvm.fileData.name);
+                    this.mvm.pictures[i].generatePng(requireContext());
                 } catch (IOException e){
-                    passwordText.clear_text();
+                    // Fehler beim Schreiben/Lesen  -> Sicherheitshalber alle Passworteingaben und Variablen löschen
+                    this.passwordText.clearText();
                     Arrays.fill(password, '\0');
                     throw new RuntimeException(e);
                 }
@@ -244,36 +295,43 @@ public class AddFragment extends Fragment {
                 offset += length;
             }
 
-            if(mvm.pictures.length > neededPictures)
+            // Information an den User, dass nicht alle Bilder für das Speichern benötigt wurden.
+            if(this.mvm.pictures.length > neededPictures)
                 throw new PictureSafeNotAllPicturesUsedInfo();
         }
 
-        passwordText.clear_text();
+        // Passworteingaben löschen
+        this.passwordText.clearText();
         Arrays.fill(password, '\0');
     }
 
-    public void load_file(Uri data) {
-        if (data == null) {
+    /** loadFile
+     *  Laden einer Datei aus dem Handy.
+     *
+     * @param data URI des ausgewählten Files
+     */
+    public void loadFile(Uri data) {
+        if (data == null)
             return;
-        }
 
         try {
-            mvm.fileData = new FileData(requireContext(), data);
+            // Laden der Datei als FileData objekt
+            this.mvm.fileData = new FileData(requireContext(), data);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
-        if(mvm.pictures == null)
-            fileText.setText("Bitte wähle zunächst ein Bild zum Speichern aus!\n Dateiname: " + mvm.fileData.name);
+        // UI anpassen, sollten Daten erfolgreich geladen werden
+        if(this.mvm.pictures == null)
+            this.fileText.setText("Bitte wähle zunächst ein Bild zum Speichern aus!\n Dateiname: " + this.mvm.fileData.name);
         else{
             float storable_mb = 0;
-            for (Picture pic : mvm.pictures) {
+            for (Picture pic : this.mvm.pictures)
                 storable_mb += ((float) Math.round((float) pic.storeable_data_in_byte / 1000 / 10)) / 100;
-            }
 
-            float fileLength = (float) Math.round((float) mvm.fileData.content.length / 1000 / 10) / 100;
-            fileText.setText(mvm.fileData.name + "\n\nGröße: " + fileLength + " Mb \n Maximal Speicherbare Größe: " + storable_mb + " Mb");
-            btnWrite.change_visibility(true);
+            float fileLength = (float) Math.round((float) this.mvm.fileData.content.length / 1000 / 10) / 100;
+            this.fileText.setText(this.mvm.fileData.name + "\n\nGröße: " + fileLength + " Mb \n Maximal Speicherbare Größe: " + storable_mb + " Mb");
+            this.btnWrite.changeVisibility(true);
         }
     }
 }

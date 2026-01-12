@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--        Daten speichern       -->
-
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -44,7 +42,6 @@
 
             </androidx.cardview.widget.CardView>
 
-            <!-- Output Bild -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/outputCard"
                 android:layout_width="match_parent"

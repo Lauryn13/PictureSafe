@@ -21,25 +21,26 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // BottomNavigationBar zur Navigierung zwischen den einzelnen Fragmenten
         BottomNavigationView bottomNav = findViewById(R.id.bottomNav);
         getSupportFragmentManager().beginTransaction().replace(R.id.fragment_container, new ImageFragment()).commit();
 
+        // OnClickListener um den Wechsel zwischen den einzelnen Fragmenten zu steuern
         bottomNav.setOnItemSelectedListener(item -> {
             Fragment fragment;
 
-            if (item.getItemId() == R.id.nav_image) {
+            if (item.getItemId() == R.id.nav_image)
                 fragment = new ImageFragment();
-            } else if (item.getItemId() == R.id.nav_saved) {
+            else if (item.getItemId() == R.id.nav_saved)
                 fragment = new SavedFragment();
-            } else {
+            else
                 fragment = new AddFragment();
-            }
 
             getSupportFragmentManager().beginTransaction().replace(R.id.fragment_container, fragment).commit();
-
             return true;
         });
 
+        // Farbe der ActionBar (Leiste oben im Bild) ändern
         ActionBar actionBar = getSupportActionBar();
         Objects.requireNonNull(actionBar);
         ColorDrawable colorDrawable = new ColorDrawable(Color.parseColor("#2A2A2A"));

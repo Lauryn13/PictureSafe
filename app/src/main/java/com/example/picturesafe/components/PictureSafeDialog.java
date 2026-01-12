@@ -13,11 +13,20 @@ import com.example.picturesafe.exceptions.PictureSafeBaseException;
 
 import java.util.Objects;
 
+/** PictureSafeDialog
+ *  Dialogfenster das im Frontend geöffnet werden kann um Fehlermeldungen o.ä. anzuzeigen
+ */
 public class PictureSafeDialog extends DialogFragment {
+    /** show
+     *  Erstellt das Fenster und zeigt es an
+     *
+     * @param fm FragmentManager (aktuelles Fragment was angezeigt wird im Frontend)
+     * @param e Exception die angezeigt werden soll
+     */
     public static void show(FragmentManager fm, PictureSafeBaseException e) {
         Bundle b = new Bundle();
         b.putString("title", e.message);
-        b.putString("desc", e.description);
+        b.putString("description", e.description);
         b.putBoolean("info", e.isInformation);
 
         PictureSafeDialog dialog = new PictureSafeDialog();
@@ -25,6 +34,12 @@ public class PictureSafeDialog extends DialogFragment {
         dialog.show(fm, "GLOBAL_DIALOG");
     }
 
+    /** onCreateDialog
+     *  Erstellt das Fenster mit den übergebenen Informationen
+     *
+     * @param saved
+     * @return Dialogfenster
+     */
     @NonNull
     @Override
     public Dialog onCreateDialog(Bundle saved) {
@@ -32,7 +47,7 @@ public class PictureSafeDialog extends DialogFragment {
 
         return new AlertDialog.Builder(requireContext())
                 .setTitle(getArguments().getString("title"))
-                .setMessage(getArguments().getString("desc"))
+                .setMessage(getArguments().getString("description"))
                 .setIcon(info ? R.drawable.ic_info : R.drawable.ic_error)
                 .setPositiveButton("OK", null)
                 .create();

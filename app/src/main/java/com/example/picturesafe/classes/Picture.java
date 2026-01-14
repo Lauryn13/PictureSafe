@@ -15,6 +15,7 @@ import com.example.picturesafe.exceptions.PictureSafeDataCorruptedInfo;
 import com.example.picturesafe.exceptions.PictureSafeFileNotFoundException;
 import com.example.picturesafe.exceptions.PictureSafeIOException;
 import com.example.picturesafe.exceptions.PictureSafeMetaDataException;
+import com.example.picturesafe.exceptions.PictureSafeOutOfMemory;
 import com.example.picturesafe.exceptions.PictureSafePictureTooSmallException;
 import com.example.picturesafe.exceptions.PictureSafeSecurityNotSupported;
 import com.example.picturesafe.exceptions.PictureSafeWrongPasswordException;
@@ -158,6 +159,7 @@ public class Picture {
         this.rowsOfData = Math.floorDiv((dataBits - 1) / 3, this.width) + 1;
         this.lastRowDataBits = dataBits - (rowsOfData - 1) * this.width * 3 * this.k;
         this.amountOfPictures = amountOfPictures;
+        this.name = name;
 
         int nameBytes = name != null ? name.getBytes().length : 0;
         int dataLength = this.savedDataLength;
@@ -173,12 +175,16 @@ public class Picture {
             throw new PictureSafeMetaDataException("Das ausgewählte Bild ist zu groß, sodass es nicht verarbeitet werden kann.\nMaximale Größe: 21844x65534 Pixel\nAusgewählte Größe: " + this.width + "x" + this.height + " Pixel", false);
 
         // Überprüfen, ob der Name zu lang ist um ihn noch im Bild speichern zu können
-        if(this.width < Math.ceilDiv(216 + nameBytes * 8, 3)){
+        if(this.width * 3 - 1 < 216 + nameBytes * 8){
             this.name = null;
             nameBytes = 0;
         }
 
-        // TODO Maximale zu speichernde Datenlänge muss noch überprüft werden (dataLength)
+        // Daten sind verschlüsselt -> Name wird nicht gespeichert
+        if(this.compressionType.usesEncryption()){
+            nameBytes = 0;
+            this.name = null;
+        }
 
         // Maximale Anzahl von Bildern die Zusammenhängend Daten speichern zu können (Sonst reichen MetadatenBytes nicht aus um die Zahl zu speichern)
         if(amountOfPictures > 256 || this.currentPicture > 256)
@@ -229,6 +235,7 @@ public class Picture {
      *
      * @param mvm MainViewModel, um nicht-kritische Fehler vorübergehend zu speichern und später zu werfen
      * @param byteData Byte-Array der zu speichernden Datei
+     * @param originalByteLength Unkomprimierte Länge der zu speichernden Datei
      * @param amountOfPictures Anzahl der Bilder, indem die Datei gespeichert wird
      * @param dataType Datentyp der zu speichernden Datei
      * @param compressionType Kompressions- und Verschlüsselungsmethode
@@ -236,21 +243,10 @@ public class Picture {
      * @param name Name der zu speichernden Datei
      * @throws IOException Fehler beim Lesen/Schreiben der Datei
      */
-    public void setData(MainViewModel mvm, byte[] byteData, int amountOfPictures, DataTypes dataType, CompressionType compressionType, char[] password, String name) throws IOException{
+    public void setData(MainViewModel mvm, byte[] byteData, int originalByteLength, int amountOfPictures, DataTypes dataType, CompressionType compressionType, char[] password, String name) throws IOException{
         this.storedDataType = dataType;
-        this.savedDataLength = byteData.length;
-
-        // Kompression der Daten (Methode wird durch den compressionType ausgewählt und durchgeführt)
-        byte[] compressedData = compressionType.compressData(byteData);
-
-        // Sollte die Kompression die daten überhaupt verkleinert haben
-        if(compressedData != null && compressedData.length < byteData.length) {
-            byteData = compressedData;
-            this.compressionType = compressionType;
-        }
-        else
-            // Kompressions Array ist größer als nicht komprimiertes Array -> Kompression Lohnt sich nicht
-            this.compressionType = compressionType.removeCompression();
+        this.savedDataLength = originalByteLength;
+        this.compressionType = compressionType;
 
         // Verschlüsselung der Daten
         if(this.compressionType.usesEncryption()){
@@ -346,7 +342,7 @@ public class Picture {
         byte[] nameBytes = (this.name != null) ? this.name.getBytes() : null;
 
         // Infotext, dass der Name nicht gespeichert werden kann NACHDEM die Daten geschrieben wurden anzeigen
-        if(nameBytes == null)
+        if(nameBytes == null && !this.compressionType.usesEncryption())
             mvm.waitingException = new PictureSafeCouldntSavePictureNameInfo();
 
         // Generierung der Metadaten und Namensdaten im Bild
@@ -430,11 +426,18 @@ public class Picture {
     /** readPixelArray
      *  Generiert ein 2D-Integer-Array aus den Pixeln der Bitmap
      *
-     * @return
+     * @return 2D-Integer-Array
      */
     private int[][] readPixelArray(){
         int[][] pixels = new int[this.height][this.width];
-        int[] flat = new int[this.width * this.height];
+
+        int[] flat;
+        try {
+            flat = new int[this.width * this.height];
+        } catch (OutOfMemoryError e){
+            throw new PictureSafeOutOfMemory();
+        }
+        Objects.requireNonNull(flat);
 
         // lesen der Pixel in ein 1D Array -> extrem effizient (Vergleichsweise zum lesen in 2D)
         this.bitmap.getPixels(flat, 0, this.width, 0, 0, this.width, this.height);
@@ -506,7 +509,7 @@ public class Picture {
         byte[] data = PictureUtils.binaryToBytes(binData);
 
         if(readMetadata)
-            return new FileData(data, this.storedDataType, this.name);
+            return new FileData(data, this.storedDataType, this.name, data.length);
 
         // Entschlüsseln
         if (this.compressionType.usesEncryption()) {
@@ -522,7 +525,7 @@ public class Picture {
         // Dekomprimieren der Daten
         data = this.compressionType.decompressData(data, this.savedDataLength);
         // erstellen einer FileData, die zurückgegeben wird
-        return new FileData(data, this.storedDataType, this.name);
+        return new FileData(data, this.storedDataType, this.name, this.savedDataLength);
     }
     /** readContent-Overload
      *  Liest Daten aus dem Bild, angepasst an die reinen Bindaten des Files (keine Metadaten)

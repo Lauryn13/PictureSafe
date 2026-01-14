@@ -12,13 +12,13 @@ public enum DataTypes {
     TXTDATA("0TXT"),
     JPG("0JPG"),
     PNG("0PNG"),
-//    MP3("0MP3"),
-//    MP4("0MP4"),
-//    EXCEL("XLSX"),
-//    WORD("DOCX"),
-//    ZIP("ZIP"),
-//    PPTX("PPTX"),
-//    CSV("CSV"),
+    MP3("0MP3"),
+    MP4("0MP4"),
+    EXCEL("XLSX"),
+    WORD("DOCX"),
+    ZIP("ZIP"),
+    PPTX("PPTX"),
+    CSV("CSV"),
     PDF("0PDF");
 
     public final String text;
@@ -31,7 +31,7 @@ public enum DataTypes {
      *  Konvertiert einen String aus den Metadaten in einen DataTypes-Wert
      *
      * @param text
-     * @return
+     * @return DataTypes-Wert
      */
     public static DataTypes fromText(String text) {
         // returns DataType from saved String in Picture
@@ -61,6 +61,20 @@ public enum DataTypes {
                 return DataTypes.PNG;
             case ".pdf":
                 return DataTypes.PDF;
+            case ".mp3":
+                return DataTypes.MP3;
+            case ".mp4":
+                return DataTypes.MP4;
+            case ".xlsx":
+                return DataTypes.EXCEL;
+            case ".docx":
+                return DataTypes.WORD;
+            case ".pptx":
+                return DataTypes.PPTX;
+            case ".csv":
+                return DataTypes.CSV;
+            case ".zip":
+                return DataTypes.ZIP;
             default:
                 return DataTypes.NODATA;
         }

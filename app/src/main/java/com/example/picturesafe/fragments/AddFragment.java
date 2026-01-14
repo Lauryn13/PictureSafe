@@ -13,6 +13,7 @@ import android.widget.TextView;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
@@ -53,6 +54,8 @@ public class AddFragment extends Fragment {
     PictureSafeDropDown compressionDropDown;
     PictureSafeCheckBox encryptionCheckBox;
     PictureSafeEditText passwordText;
+
+    private AlertDialog loadingDialog;
 
     /** onCreate
      *  Setzt das onActivityResult für diesen Tab
@@ -99,7 +102,7 @@ public class AddFragment extends Fragment {
         // UI-Komponenten initialisieren
         this.btnSelectFile = new PictureSafeButton(requireContext(), view.findViewById(R.id.btnSelectFile), true);
         this.btnWrite = new PictureSafeButton(requireContext(), view.findViewById(R.id.btnWrite));
-        this.fileText = new PictureSafeText(view.findViewById(R.id.fileText), view.findViewById(R.id.fileCard));
+        this.fileText = new PictureSafeText(view.findViewById(R.id.fileText), view.findViewById(R.id.fileCard), true);
         this.saveableText = new PictureSafeEditText(view.findViewById(R.id.saveableText), view.findViewById(R.id.saveableCard));
         this.compressionDropDown = new PictureSafeDropDown(requireContext(), view.findViewById(R.id.compressionSpinner), true);
         this.encryptionCheckBox = new PictureSafeCheckBox(view.findViewById(R.id.textEncryption), view.findViewById(R.id.checkBoxEncrytion), true);
@@ -113,7 +116,20 @@ public class AddFragment extends Fragment {
         this.btnSelectFile.button.setOnClickListener(v -> {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/pdf", "image/*"});
+            // Erlaubte Datentypen
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
+                    "text/plain",
+                    "image/jpeg",
+                    "image/png",
+                    "audio/mpeg",
+                    "video/mp4",
+                    "application/pdf",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    "text/csv",
+                    "application/zip"
+            });
             intent.setType("*/*");
 
             this.pickFileLauncher.launch(Intent.createChooser(intent, "Datei auswählen"));
@@ -122,18 +138,27 @@ public class AddFragment extends Fragment {
 
         // OnClick für den Button zum Schreiben der Dateien erstellen
         this.btnWrite.button.setOnClickListener(v -> {
-            try {
-                clickBtnWrite();
-                // Wartende Information, die im Verlauf des Schreibens aufgetreten sind
-                if(this.mvm.waitingException != null)
-                    throw this.mvm.waitingException;
-            } catch (PictureSafeBaseException e){
-                // Anzeigen des Dialogs mit der Exception
-                PictureSafeDialog.show(getParentFragmentManager(), e);
-            } finally {
-                // Zurücksetzen der Wartenden Exception, sollte irgendeine geworfen wurden sein
-                this.mvm.waitingException = null;
-            }
+            showLoadingDialog();
+
+            // Einmal UI Update abwarten (da kein Threading genutzt wird und sonst Loading Dialog nicht angezeigt wird.
+            requireView().post(() -> {
+                try {
+                    clickBtnWrite();
+                    // Wartende Information, die im Verlauf des Schreibens aufgetreten sind
+                    if(this.mvm.waitingException != null)
+                        throw this.mvm.waitingException;
+                    hideLoadingDialog();
+                } catch (PictureSafeBaseException e) {
+                    hideLoadingDialog();
+                    // Anzeigen des Dialogs mit der Exception
+                    PictureSafeDialog.show(getParentFragmentManager(), e);
+                }catch (IOException e) {
+                    throw new RuntimeException(e);
+                } finally {
+                    // Zurücksetzen der Wartenden Exception, sollte irgendeine geworfen wurden sein
+                    this.mvm.waitingException = null;
+                }
+            });
         });
 
         // Anzeigen des Passwort-Edits sollte die Checkbox aktiviert sein
@@ -201,8 +226,21 @@ public class AddFragment extends Fragment {
             this.btnSelectFile.changeText("Neue Datei auswählen");
             this.btnWrite.changeVisibility(true);
         }
-        else
+        else{
+            if(this.mvm.pictures != null) {
+                float storable_mb = 0;
+                for (Picture pic : this.mvm.pictures)
+                    storable_mb += ((float) Math.round((float) pic.storeable_data_in_byte / 1000 / 10)) / 100;
+
+                this.fileText.setText("Keine Speicherbare Datei ausgewählt! \nMaximal Speicherbare Größe: " + storable_mb + " Mb");
+            }
+            else
+                this.fileText.setText("Bitte wähle zunächst ein Bild zum Speichern aus!");
+
+
             this.btnWrite.changeVisibility(false);
+        }
+
 
         return view;
     }
@@ -211,18 +249,21 @@ public class AddFragment extends Fragment {
      *  Funktion um eine Datei/Text in den Bildern speichern zu können.
      *  Wird ausgeführt, wenn der Schreiben Button gedrückt wird.
      */
-    public void clickBtnWrite(){
+    public void clickBtnWrite() throws IOException{
+        CompressionType compressionType = CompressionType.fromUI(this.encryptionCheckBox, this.compressionDropDown);
+
         // Es soll Text gespeichert werden -> Muss eine FileData imitiert werden, welche die Daten des Textes beinhaltet
         if(!this.mvm.dataChoosen){
             String textData = this.saveableText.readText();
-            this.mvm.fileData = new FileData(textData.getBytes(), DataTypes.TEXTDATA, "textExport");
+            this.mvm.fileData = new FileData(textData.getBytes(), DataTypes.TEXTDATA, "textExport", textData.getBytes().length);
         }
+
+        compressionType = this.mvm.fileData.compressData(compressionType);
 
         // zu speichernden Byte-Daten
         byte[] byteData = this.mvm.fileData.content;
 
         // Lesen des Kompressionstypes und des Passworts aus den UI-Komponenten
-        CompressionType compressionType = CompressionType.fromUI(this.encryptionCheckBox, this.compressionDropDown);
         char[] password = this.passwordText.readText().toCharArray();
 
         // Verschlüsselung ausgewählt, ohne Passwort zu definieren
@@ -238,7 +279,7 @@ public class AddFragment extends Fragment {
             // Daten passen in einem Bild rein
             try {
                 // Daten im Bild schreiben und das Bild generieren (abspeichern auf dem Gerät)
-                this.mvm.pictures[0].setData(this.mvm, byteData, 1, this.mvm.fileData.dataType, compressionType, password, this.mvm.fileData.name);
+                this.mvm.pictures[0].setData(this.mvm, byteData, this.mvm.fileData.uncompressedDataLength, 1, this.mvm.fileData.dataType, compressionType, password, this.mvm.fileData.name);
                 this.mvm.pictures[0].generatePng(requireContext());
             } catch (IOException e){
                 // Fehlerdialog wird aufgerufen (Sicherheitshalber werden alle Passworteingaben und Variablen gelöscht)
@@ -283,7 +324,7 @@ public class AddFragment extends Fragment {
                 System.arraycopy(byteData, offset, saveableByteData, 0, length);
                 try {
                     // Schreiben eines Chunks in dem Bild und generieren (speichern) des neuen Fotos
-                    this.mvm.pictures[i].setData(this.mvm, saveableByteData, neededPictures, this.mvm.fileData.dataType, compressionType, password, this.mvm.fileData.name);
+                    this.mvm.pictures[i].setData(this.mvm, saveableByteData, this.mvm.fileData.uncompressedDataLength, neededPictures, this.mvm.fileData.dataType, compressionType, password, this.mvm.fileData.name);
                     this.mvm.pictures[i].generatePng(requireContext());
                 } catch (IOException e){
                     // Fehler beim Schreiben/Lesen  -> Sicherheitshalber alle Passworteingaben und Variablen löschen
@@ -332,6 +373,28 @@ public class AddFragment extends Fragment {
             float fileLength = (float) Math.round((float) this.mvm.fileData.content.length / 1000 / 10) / 100;
             this.fileText.setText(this.mvm.fileData.name + "\n\nGröße: " + fileLength + " Mb \n Maximal Speicherbare Größe: " + storable_mb + " Mb");
             this.btnWrite.changeVisibility(true);
+        }
+    }
+
+    /** showLoadingDialog
+     *  Zeigt eine Ladeanzeige an
+     */
+    private void showLoadingDialog() {
+        if (loadingDialog != null && loadingDialog.isShowing()) return;
+
+        View view = LayoutInflater.from(getContext()).inflate(R.layout.loading_dialog, null);
+
+        loadingDialog = new AlertDialog.Builder(requireContext()).setView(view).setCancelable(false).create();
+        loadingDialog.show();
+    }
+
+    /** hideLoadingDialog
+     *  Versteckt die Ladeanzeige, wenn die Backendaufgaben abgeschlossen sind.
+     */
+    private void hideLoadingDialog() {
+        if (loadingDialog != null) {
+            loadingDialog.dismiss(); // Schließen des Dialogs
+            loadingDialog = null;
         }
     }
 }

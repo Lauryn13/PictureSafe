@@ -199,11 +199,10 @@ public final class PictureUtils {
             lineBitsLeft -= pre;
 
             // Signatur überprüfen
-            for (int i = 0; i < 32; i++) {
+            for (int i = 0; i < 32; i++)
                 if ((bits[r++] & 1) != signatureBits[i])
                     // Signatur stimmt nicht überein -> Fehler Daten sind wahrscheinlich verändert wurden
                     throw new PictureSafeDataCorruptedInfo();
-            }
             lineBitsLeft -= 32;
 
             // Rest der Zeile

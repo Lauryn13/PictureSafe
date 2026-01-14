@@ -9,8 +9,10 @@ import android.net.Uri;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 
+import com.example.picturesafe.enumerators.CompressionType;
 import com.example.picturesafe.enumerators.DataTypes;
 import com.example.picturesafe.exceptions.PictureSafeFileNotFoundException;
+import com.example.picturesafe.exceptions.PictureSafeUnsupportedFileType;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
@@ -30,6 +32,7 @@ public class FileData{
     public byte[] content;
     /** Aktuell gespeicherter Dateityp **/
     public DataTypes dataType;
+    public int uncompressedDataLength;
     /** Dateiname **/
     public String name;
 
@@ -63,6 +66,8 @@ public class FileData{
         this.name = getFileName(context, uri);
         this.dataType = DataTypes.fromFile(this.name);
         this.content = baos.toByteArray();
+
+        this.uncompressedDataLength = this.content.length;
     }
 
     /** Konstruktor Overload
@@ -71,11 +76,35 @@ public class FileData{
      * @param content Byte-Array der Daten
      * @param dataType ursprünglicher Datentyp
      * @param name ursprünglicher Name der Datei
+     * @param uncompressedDataLength Länge der Daten vor Kompression
      */
-    public FileData(byte[] content, DataTypes dataType, String name){
+    public FileData(byte[] content, DataTypes dataType, String name, int uncompressedDataLength){
         this.content = content;
         this.dataType = dataType;
         this.name = name;
+        this.uncompressedDataLength = uncompressedDataLength;
+    }
+
+    /** compressData
+     * Komprimierung der Daten, je nach Datentyp.
+     *
+     * @param compressionType Typ der Kompression
+     * @return Typ der Kompression
+     * @throws IOException Fehler beim Lesen/Schreiben
+     */
+    public CompressionType compressData(CompressionType compressionType) throws IOException{
+        // Kompression der Daten (Methode wird durch den compressionType ausgewählt und durchgeführt)
+        byte[] compressedData = compressionType.compressData(this.content);
+
+        // Sollte die Kompression die daten überhaupt verkleinert haben
+        if(compressedData != null && compressedData.length < this.content.length) {
+            this.content = compressedData;
+        }
+        else
+            // Kompressions Array ist größer als nicht komprimiertes Array -> Kompression Lohnt sich nicht
+            compressionType = compressionType.removeCompression();
+
+        return compressionType;
     }
 
     /** exportFile
@@ -104,6 +133,7 @@ public class FileData{
                 collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
                 break;
             case TXTDATA:
+            case TEXTDATA:
                 mime = "text/plain";
                 path = "Documents/PictureSafe";
                 collection = MediaStore.Files.getContentUri("external");
@@ -113,8 +143,43 @@ public class FileData{
                 path = "Documents/PictureSafe";
                 collection = MediaStore.Files.getContentUri("external");
                 break;
+            case MP3:
+                mime = "audio/mpeg";
+                path = "Music/PictureSafe";
+                collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
+                break;
+            case MP4:
+                mime = "video/mp4";
+                path = "Movies/PictureSafe";
+                collection = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
+                break;
+            case EXCEL:
+                mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                path = "Documents/PictureSafe";
+                collection = MediaStore.Files.getContentUri("external");
+                break;
+            case WORD:
+                mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                path = "Documents/PictureSafe";
+                collection = MediaStore.Files.getContentUri("external");
+                break;
+            case PPTX:
+                mime = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+                path = "Documents/PictureSafe";
+                collection = MediaStore.Files.getContentUri("external");
+                break;
+            case CSV:
+                mime = "text/csv";
+                path = "Documents/PictureSafe";
+                collection = MediaStore.Files.getContentUri("external");
+                break;
+            case ZIP:
+                mime = "application/zip";
+                path = "Documents/PictureSafe";
+                collection = MediaStore.Files.getContentUri("external");
+                break;
             default:
-                return null;
+                throw new PictureSafeUnsupportedFileType();
         }
 
         // Zusammenfügen der Informationen für die Erstellung der eigentlichen Datei

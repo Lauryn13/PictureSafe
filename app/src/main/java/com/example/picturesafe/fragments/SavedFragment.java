@@ -43,6 +43,8 @@ public class SavedFragment extends Fragment {
     PictureSafeButton btnDecrypt;
     PictureSafeText readedText;
 
+    private AlertDialog loadingDialog;
+
     /** onCreateView
      *  Erstellt die Angezeigten UI-Componenten im Frontend und setzt deren Funktionen und Werte.
      *
@@ -54,7 +56,7 @@ public class SavedFragment extends Fragment {
      * @param savedInstanceState If non-null, this fragment is being re-constructed
      * from a previous saved state as given here.
      *
-     * @return
+     * @return Aktuelle View
      */
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState){
         View view = inflater.inflate(R.layout.fragment_saved, container, false);
@@ -70,20 +72,34 @@ public class SavedFragment extends Fragment {
 
         // OnClick für den Button zum Export der gespeicherten Daten erstellen
         this.btnExport.button.setOnClickListener(v -> {
-            try {
-                clickBtnExport();
-            } catch (PictureSafeBaseException e){
-                PictureSafeDialog.show(getParentFragmentManager(), e);
-            }
+            showLoadingDialog();
+
+            // Einmal UI Update abwarten (da kein Threading genutzt wird und sonst Loading Dialog nicht angezeigt wird.
+            requireView().post(() -> {
+                try {
+                    clickBtnExport();
+                    hideLoadingDialog();
+                } catch (PictureSafeBaseException e) {
+                    hideLoadingDialog();
+                    PictureSafeDialog.show(getParentFragmentManager(), e);
+                }
+            });
         });
 
         // OnClick für den Button zum Entschlüsseln der Daten erstellen (sollt der Entschlüsselvorgang beim Lesen abgebrochen werden
         this.btnDecrypt.button.setOnClickListener(v -> {
-            try {
-                clickBtnDecrypt();
-            } catch (PictureSafeBaseException e){
-                PictureSafeDialog.show(getParentFragmentManager(), e);
-            }
+            showLoadingDialog();
+
+            // Einmal UI Update abwarten (da kein Threading genutzt wird und sonst Loading Dialog nicht angezeigt wird.
+            requireView().post(() -> {
+                try {
+                    clickBtnDecrypt();
+                    hideLoadingDialog();
+                } catch (PictureSafeBaseException e){
+                    hideLoadingDialog();
+                    PictureSafeDialog.show(getParentFragmentManager(), e);
+                }
+            });
         });
 
         // Anzeigen der Daten
@@ -98,7 +114,7 @@ public class SavedFragment extends Fragment {
         if(this.mvm.fileData != null){
             Uri uri;
             try {
-                uri = this.mvm.fileData.exportFile(getContext());
+                uri = this.mvm.fileData.exportFile(requireContext());
             } catch (IOException e){
                 throw new RuntimeException(e);
             }
@@ -181,6 +197,8 @@ public class SavedFragment extends Fragment {
         int completeDataLength = 0;
         int picturesWithData = 0;
         String signature = null;
+        DataTypes dataType = null;
+        int uncompressedDataLength = -1;
 
         // Herausfinden welche Bilder tatsächlich Daten haben
         // Das erste Bild, was Daten enthält wird als "Hauptbild" gesetzt -> ID/Signatur wird auf dieses Bild gesetzt und nur noch Bilder akzeptiert, die Inhalte zur gleichen Datei hat
@@ -193,6 +211,8 @@ public class SavedFragment extends Fragment {
                 else if(signature == null)
                     // Signatur wird gesetzt -> nur zugehörige Bilder können weiter verwendet werden
                     signature = picture.signature;
+                    dataType = picture.storedDataType;
+                    uncompressedDataLength = picture.savedDataLength;
 
                 try {
                     // Versuchen die Daten der Bilder in data zu speichern (je nach Index des Bildes)
@@ -233,7 +253,7 @@ public class SavedFragment extends Fragment {
         }
 
         // erstellen des FileData-Objektes mit den zusammengefügten Daten
-        this.mvm.fileData = new FileData(completeData, mvm.storedDataType, name);
+        this.mvm.fileData = new FileData(completeData, dataType, name, uncompressedDataLength);
     }
 
     /** showPasswordDialog
@@ -242,15 +262,48 @@ public class SavedFragment extends Fragment {
      * @param onPassword Passwort zum auslesen der Daten
      */
     private void showPasswordDialog(Consumer<char[]> onPassword) {
-        View view = LayoutInflater.from(getContext()).inflate(R.layout.password_dialog, null);
+        hideLoadingDialog();
+        View view = LayoutInflater.from(requireContext()).inflate(R.layout.password_dialog, null);
         PictureSafeEditText pwEdit = new PictureSafeEditText(view.findViewById(R.id.passwordText), view.findViewById(R.id.passwordCard), true);
 
-        new AlertDialog.Builder(requireContext())
-                .setTitle("Verschlüsselte Daten")
-                .setView(view)
-                .setCancelable(false)
-                .setPositiveButton("Entschlüsseln", (d, w) -> {char[] pw = pwEdit.readText().toCharArray(); onPassword.accept(pw); pwEdit.clearText();})
-                .setNegativeButton("Abbrechen", (d, w) -> pwEdit.clearText())
-                .show();
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+        builder.setTitle("Verschlüsselte Daten");
+        builder.setView(view);
+        builder.setCancelable(false);
+        builder.setPositiveButton("Entschlüsseln", (d, w) -> {
+            char[] pw = pwEdit.readText().toCharArray();
+            showLoadingDialog();
+            requireView().post(() -> {
+                onPassword.accept(pw);
+                hideLoadingDialog();
+                pwEdit.clearText();
+            });
+        });
+        builder.setNegativeButton("Abbrechen", (d, w) -> {
+            pwEdit.clearText();
+        });
+        builder.show();
+    }
+
+    /** showLoadingDialog
+     *  Zeigt eine Ladeanzeige an
+     */
+    private void showLoadingDialog() {
+        if (loadingDialog != null && loadingDialog.isShowing()) return;
+
+        View view = LayoutInflater.from(requireContext()).inflate(R.layout.loading_dialog, null);
+
+        loadingDialog = new AlertDialog.Builder(requireContext()).setView(view).setCancelable(false).create();
+        loadingDialog.show();
+    }
+
+    /** hideLoadingDialog
+     *  Versteckt die Ladeanzeige, wenn die Backendaufgaben abgeschlossen sind.
+     */
+    private void hideLoadingDialog() {
+        if (loadingDialog != null) {
+            loadingDialog.dismiss(); // Schließen des Dialogs
+            loadingDialog = null;
+        }
     }
 }

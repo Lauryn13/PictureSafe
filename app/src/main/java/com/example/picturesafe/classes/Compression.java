@@ -32,6 +32,7 @@ public class Compression {
         LZ4Compressor compressor = LZ4Factory.fastestInstance().fastCompressor();
 
         byte[] out = new byte[compressor.maxCompressedLength(data.length)];
+        // Länge wird zum wiederherstellen der Daten benötigt
         int len = compressor.compress(data, 0, data.length, out, 0);
 
         return Arrays.copyOf(out, len);

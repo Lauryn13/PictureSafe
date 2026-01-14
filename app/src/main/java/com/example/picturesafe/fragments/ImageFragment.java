@@ -58,6 +58,8 @@ public class ImageFragment extends Fragment {
     PictureSafeButton btnReset;
     LinearLayout thumbnailContainer;
 
+    private AlertDialog loadingDialog;
+
 
     /** onCreate
      *  Setzt das onActivityResult für diesen Tab
@@ -73,27 +75,33 @@ public class ImageFragment extends Fragment {
             if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                 // Liste an URIS der Bilder
                 List<Uri> uris = new ArrayList<>();
+                showLoadingDialog();
 
-                if (result.getData().getClipData() != null) {
-                    // mehrere Bilder sind ausgewählt (alle werden geladen)
-                    ClipData clip = result.getData().getClipData();
-                    for (int i = 0; i < clip.getItemCount(); i++)
-                        uris.add(clip.getItemAt(i).getUri());
-                } else
-                    // nur ein Bild ist ausgewählt wurden
-                    uris.add(result.getData().getData());
+                // Einmal UI Update abwarten (da kein Threading genutzt wird und sonst Loading Dialog nicht angezeigt wird.
+                requireView().post(() ->{
+                    if (result.getData().getClipData() != null) {
+                        // mehrere Bilder sind ausgewählt (alle werden geladen)
+                        ClipData clip = result.getData().getClipData();
+                        for (int i = 0; i < clip.getItemCount(); i++)
+                            uris.add(clip.getItemAt(i).getUri());
+                    } else
+                        // nur ein Bild ist ausgewählt wurden
+                        uris.add(result.getData().getData());
 
-                Uri[] uriArray = uris.toArray(new Uri[0]);
+                    Uri[] uriArray = uris.toArray(new Uri[0]);
 
-                try{
-                    this.loadImages(uriArray); // Load Image = Laden der Daten als Picture Objekte
-                    this.showImages(0); // Anzeigen im Frontend
-                } catch (PictureSafeBaseException e){
-                    // Sollte ein Problem vorliegen, wird Exception Dialog getriggert.
-                    PictureSafeDialog.show(getParentFragmentManager(),e);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+                    try{
+                        this.loadImages(uriArray); // Load Image = Laden der Daten als Picture Objekte
+                        this.showImages(0); // Anzeigen im Frontend
+                        hideLoadingDialog();
+                    } catch (PictureSafeBaseException e){
+                        hideLoadingDialog();
+                        // Sollte ein Problem vorliegen, wird Exception Dialog getriggert.
+                        PictureSafeDialog.show(getParentFragmentManager(),e);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
             }
         });
     }
@@ -109,7 +117,7 @@ public class ImageFragment extends Fragment {
      * @param savedInstanceState If non-null, this fragment is being re-constructed
      * from a previous saved state as given here.
      *
-     * @return
+     * @return Aktuelle View
      */
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState){
@@ -280,6 +288,8 @@ public class ImageFragment extends Fragment {
         int completeDataLength = 0;
         int picturesWithData = 0;
         String signature = null;
+        DataTypes dataType = null;
+        int uncompressedDataLength = -1;
 
         // Herausfinden welche Bilder tatsächlich Daten haben
         // Das erste Bild, was Daten enthält wird als "Hauptbild" gesetzt -> ID/Signatur wird auf dieses Bild gesetzt und nur noch Bilder akzeptiert, die Inhalte zur gleichen Datei hat
@@ -288,18 +298,20 @@ public class ImageFragment extends Fragment {
            if(picture.hasData){
                // überprüfen der Signatur ob sie gleich sit
                if(signature != null && !signature.equals(picture.signature))
-                   continue;
+                    continue;
                else if(signature == null)
-                   // Signatur wird gesetzt -> nur zugehörige Bilder können weiter verwendet werden
-                   signature = picture.signature;
+                    // Signatur wird gesetzt -> nur zugehörige Bilder können weiter verwendet werden
+                    signature = picture.signature;
+                    dataType = picture.storedDataType;
+                    uncompressedDataLength = picture.savedDataLength;
 
                try {
-                   // Versuchen die Daten der Bilder in data zu speichern (je nach Index des Bildes)
-                   data[picture.currentPicture - 1] = picture.readContent(password).content;
+                    // Versuchen die Daten der Bilder in data zu speichern (je nach Index des Bildes)
+                    data[picture.currentPicture - 1] = picture.readContent(password).content;
                } catch (IndexOutOfBoundsException e){
-                   // Nicht alle Daten zum wiederherstellen der Bilder sind vorhanden
-                   this.mvm.picturesAreIncomplete = true;
-                   return;
+                    // Nicht alle Daten zum wiederherstellen der Bilder sind vorhanden
+                    this.mvm.picturesAreIncomplete = true;
+                    return;
                }
                name = picture.name;
                completeDataLength += picture.savedDataLength;
@@ -332,7 +344,7 @@ public class ImageFragment extends Fragment {
         }
 
         // erstellen des FileData-Objektes mit den zusammengefügten Daten
-        this.mvm.fileData = new FileData(completeData, mvm.storedDataType, name);
+        this.mvm.fileData = new FileData(completeData, dataType, name, uncompressedDataLength);
     }
 
     /** showPasswordDialog
@@ -341,15 +353,51 @@ public class ImageFragment extends Fragment {
      * @param onPassword Passwort zum auslesen der Daten
      */
     private void showPasswordDialog(Consumer<char[]> onPassword) {
-        View view = LayoutInflater.from(getContext()).inflate(R.layout.password_dialog, null);
+        hideLoadingDialog();
+        View view = LayoutInflater.from(requireContext()).inflate(R.layout.password_dialog, null);
         PictureSafeEditText pwEdit = new PictureSafeEditText(view.findViewById(R.id.passwordText), view.findViewById(R.id.passwordCard), true);
 
         new AlertDialog.Builder(requireContext())
                 .setTitle("Verschlüsselte Daten")
                 .setView(view)
                 .setCancelable(false)
-                .setPositiveButton("Entschlüsseln", (d, w) -> {char[] pw = pwEdit.readText().toCharArray(); onPassword.accept(pw); pwEdit.clearText();})
-                .setNegativeButton("Abbrechen", (d, w) -> pwEdit.clearText())
+                .setPositiveButton("Entschlüsseln", (d, w) -> {
+                    char[] pw = pwEdit.readText().toCharArray();
+                    showLoadingDialog();
+                    requireView().post(() -> {
+                        onPassword.accept(pw);
+                        hideLoadingDialog();
+                        pwEdit.clearText();
+                    });
+                })
+                .setNegativeButton("Abbrechen", (d, w) -> {
+                    pwEdit.clearText();
+                })
                 .show();
+    }
+
+    /** showLoadingDialog
+     *  Zeigt eine Ladeanzeige an
+     */
+    private void showLoadingDialog() {
+        if (this.loadingDialog != null && this.loadingDialog.isShowing()) return;
+
+        View view = LayoutInflater.from(requireContext()).inflate(R.layout.loading_dialog, null);
+
+        this.loadingDialog = new AlertDialog.Builder(requireContext()).
+                setView(view)
+                .setCancelable(false)
+                .create();
+        this.loadingDialog.show();
+    }
+
+    /** hideLoadingDialog
+     *  Versteckt die Ladeanzeige, wenn die Backendaufgaben abgeschlossen sind.
+     */
+    private void hideLoadingDialog() {
+        if (this.loadingDialog != null) {
+            this.loadingDialog.dismiss(); // Schließen des Dialogs
+            this.loadingDialog = null;
+        }
     }
 }
